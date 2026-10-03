@@ -2,6 +2,7 @@ import { ApolloDriver, type ApolloDriverConfig } from '@nestjs/apollo';
 import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 
+import { BoardsModule } from './boards/boards.module.js';
 import { ClockModule } from './clock/clock.module.js';
 import { ServerConfigModule } from './config/server-config.module.js';
 import { DatabaseModule } from './database/database.module.js';
@@ -17,8 +18,11 @@ import { HealthModule } from './health/health.module.js';
       autoSchemaFile: true,
       sortSchema: true,
       graphiql: true,
+      // Error messages and codes are enough for callers (and AI agents); stack traces stay in server logs.
+      includeStacktraceInErrorResponses: false,
     }),
     HealthModule,
+    BoardsModule,
   ],
 })
 export class AppModule {}
