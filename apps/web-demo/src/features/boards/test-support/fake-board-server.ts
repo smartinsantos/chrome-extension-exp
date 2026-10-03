@@ -24,7 +24,48 @@ export function installFakeBoardServer() {
   }
 
   const defaultHandlers: Record<string, OperationHandler> = {
+    BoardSummaries: () => ({
+      boards: [
+        {
+          id: board.id,
+          name: board.name,
+          listCount: board.lists.length,
+          cardCount: board.lists.reduce((total, list) => total + list.cards.length, 0),
+        },
+        { id: 'board-personal', name: 'Personal', listCount: 3, cardCount: 4 },
+      ],
+    }),
     BoardDetail: () => ({ board: structuredClone(board) }),
+    SearchCards: (variables) => {
+      const filter = (variables['filter'] ?? {}) as {
+        isOverdue?: boolean;
+        listId?: string;
+        text?: string;
+        labelNames?: string[];
+      };
+      const listsInOrder = board.lists.toSorted(
+        (first, second) => first.position - second.position,
+      );
+      const searchCards = listsInOrder.flatMap((list) =>
+        list.cards
+          .filter((card) => filter.isOverdue !== true || card.isOverdue)
+          .filter((card) => filter.listId === undefined || card.listId === filter.listId)
+          .filter(
+            (card) =>
+              filter.text === undefined ||
+              card.title.toLowerCase().includes(filter.text.toLowerCase()),
+          )
+          .filter(
+            (card) =>
+              filter.labelNames === undefined ||
+              card.labels.some((label) =>
+                filter.labelNames?.some((name) => name.toLowerCase() === label.name.toLowerCase()),
+              ),
+          )
+          .map((card) => ({ ...card, list: { id: list.id, name: list.name } })),
+      );
+      return { searchCards };
+    },
     CreateCard: (variables) => {
       const input = variables['input'] as { listId: string; title: string };
       const list = board.lists.find((entry) => entry.id === input.listId);

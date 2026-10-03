@@ -6,6 +6,7 @@ import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 import { KanbanSquare } from 'lucide-react';
 
 import type { AppRouterContext } from '../router';
+import { GlobalWebMcpTools } from '../webmcp/global-webmcp-tools';
 
 export const Route = createRootRouteWithContext<AppRouterContext>()({
   component: RootLayout,
@@ -27,6 +28,7 @@ function RootLayout() {
         </main>
       </div>
       <Toaster />
+      <GlobalWebMcpTools />
       {import.meta.env.DEV && <ReactQueryDevtools buttonPosition="bottom-left" />}
       {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-right" />}
     </TooltipProvider>

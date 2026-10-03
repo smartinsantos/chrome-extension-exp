@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 
 import { boardDetailQueryOptions } from '../features/boards/api/board-queries';
 import { BoardView } from '../features/boards/components/board-view';
+import { BoardWebMcpTools } from '../webmcp/board-webmcp-tools';
 
 export const Route = createFileRoute('/boards/$boardId')({
   loader: ({ context, params }) =>
@@ -11,5 +12,11 @@ export const Route = createFileRoute('/boards/$boardId')({
 
 function BoardPage() {
   const { boardId } = Route.useParams();
-  return <BoardView boardId={boardId} />;
+  return (
+    <>
+      <BoardView boardId={boardId} />
+      {/* Keyed by board, so switching boards swaps the tools instead of reusing stale ones. */}
+      <BoardWebMcpTools key={boardId} boardId={boardId} />
+    </>
+  );
 }

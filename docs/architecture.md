@@ -72,7 +72,7 @@ flowchart TD
   protocol -.-> ext[chrome-ext 🔜]
   protocol -.-> bff[chrome-ext-bff 🔜]
   ui -.-> ext
-  ui -.-> web[web-demo 🔜]
+  ui -.-> web[web-demo ✅]
 ```
 
 | Package                                              | Used by                | Read more                                                   |
@@ -82,6 +82,15 @@ flowchart TD
 | [`@repo/ui`](../packages/ui)                         | Web demo and extension | [Using the design system](../packages/ui/README.md)         |
 
 Shared packages ship their TypeScript source directly; there is no separate build step. Each app's bundler (Vite, or WXT for the extension) compiles the package code together with the app.
+
+## Apps
+
+| App                                          | Status | Read more                                                                         |
+| -------------------------------------------- | ------ | --------------------------------------------------------------------------------- |
+| [`web-server-demo`](../apps/web-server-demo) | ✅     | [Data model, API and errors](../apps/web-server-demo/README.md)                   |
+| [`web-demo`](../apps/web-demo)               | ✅     | [The WebMCP tools it offers](../apps/web-demo/README.md#the-tools-agents-can-use) |
+| `chrome-ext`                                 | 🔜     | Phase 3                                                                           |
+| `chrome-ext-bff`                             | 🔜     | Phase 4                                                                           |
 
 ## Where to go next
 

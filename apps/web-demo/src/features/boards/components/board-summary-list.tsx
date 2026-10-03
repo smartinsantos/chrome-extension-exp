@@ -21,7 +21,7 @@ export function BoardSummaryList() {
 
   return (
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {boardsQuery.data.map((board) => (
+      {boardsQuery.data.boards.map((board) => (
         <li key={board.id}>
           <Link
             to="/boards/$boardId"

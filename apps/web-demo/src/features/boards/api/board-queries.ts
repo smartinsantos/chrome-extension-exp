@@ -55,6 +55,18 @@ export const BoardDetailQueryDocument = graphql(`
   }
 `);
 
+export const SearchCardsQueryDocument = graphql(`
+  query SearchCards($boardId: ID!, $filter: CardSearchFilter) {
+    searchCards(boardId: $boardId, filter: $filter) {
+      ...BoardCardFields
+      list {
+        id
+        name
+      }
+    }
+  }
+`);
+
 /** Query keys in one place, so actions refresh exactly what they change. */
 export const boardQueryKeys = {
   all: ['boards'] as const,
@@ -66,7 +78,6 @@ export function boardSummariesQueryOptions() {
   return queryOptions({
     queryKey: boardQueryKeys.summaries(),
     queryFn: () => executeGraphql(BoardSummariesQueryDocument),
-    select: (data) => data.boards,
   });
 }
 

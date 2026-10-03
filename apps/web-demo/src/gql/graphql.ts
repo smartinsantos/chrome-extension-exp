@@ -9,6 +9,19 @@ export type CardPosition =
   | 'BOTTOM'
   | 'TOP';
 
+/** Narrows a card search. All given conditions must match. */
+export type CardSearchFilter = {
+  /** Include archived cards (default false). */
+  includeArchived?: boolean | null | undefined;
+  /** Only cards past their due date and not completed. */
+  isOverdue?: boolean | null | undefined;
+  /** Cards with at least one of these labels. */
+  labelNames?: Array<string> | null | undefined;
+  listId?: string | null | undefined;
+  /** Text found in the title or description (any case). */
+  text?: string | null | undefined;
+};
+
 /** A new card, added at the bottom of its list. */
 export type CreateCardInput = {
   description?: string | null | undefined;
@@ -64,6 +77,14 @@ export type BoardDetailQueryVariables = Exact<{
 
 
 export type BoardDetailQuery = { board: { id: string, name: string, labels: Array<{ id: string, name: string, color: LabelColor }>, lists: Array<{ id: string, name: string, position: number, cards: Array<{ id: string, listId: string, title: string, description: string, dueDate: string | null, isDueComplete: boolean, isOverdue: boolean, position: number, archivedAt: string | null, labels: Array<{ id: string, name: string, color: LabelColor }> }> }> } | null };
+
+export type SearchCardsQueryVariables = Exact<{
+  boardId: string;
+  filter?: CardSearchFilter | null | undefined;
+}>;
+
+
+export type SearchCardsQuery = { searchCards: Array<{ id: string, listId: string, title: string, description: string, dueDate: string | null, isDueComplete: boolean, isOverdue: boolean, position: number, archivedAt: string | null, list: { id: string, name: string }, labels: Array<{ id: string, name: string, color: LabelColor }> }> };
 
 export type CreateCardMutationVariables = Exact<{
   input: CreateCardInput;
@@ -184,6 +205,32 @@ export const BoardDetailDocument = new TypedDocumentString(`
     color
   }
 }`) as unknown as TypedDocumentString<BoardDetailQuery, BoardDetailQueryVariables>;
+export const SearchCardsDocument = new TypedDocumentString(`
+    query SearchCards($boardId: ID!, $filter: CardSearchFilter) {
+  searchCards(boardId: $boardId, filter: $filter) {
+    ...BoardCardFields
+    list {
+      id
+      name
+    }
+  }
+}
+    fragment BoardCardFields on Card {
+  id
+  listId
+  title
+  description
+  dueDate
+  isDueComplete
+  isOverdue
+  position
+  archivedAt
+  labels {
+    id
+    name
+    color
+  }
+}`) as unknown as TypedDocumentString<SearchCardsQuery, SearchCardsQueryVariables>;
 export const CreateCardDocument = new TypedDocumentString(`
     mutation CreateCard($input: CreateCardInput!) {
   createCard(input: $input) {

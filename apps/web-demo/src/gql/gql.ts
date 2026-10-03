@@ -18,6 +18,7 @@ type Documents = {
     "\n  query BoardSummaries {\n    boards {\n      id\n      name\n      listCount\n      cardCount\n    }\n  }\n": typeof types.BoardSummariesDocument,
     "\n  fragment BoardCardFields on Card {\n    id\n    listId\n    title\n    description\n    dueDate\n    isDueComplete\n    isOverdue\n    position\n    archivedAt\n    labels {\n      id\n      name\n      color\n    }\n  }\n": typeof types.BoardCardFieldsFragmentDoc,
     "\n  query BoardDetail($boardId: ID!) {\n    board(id: $boardId) {\n      id\n      name\n      labels {\n        id\n        name\n        color\n      }\n      lists {\n        id\n        name\n        position\n        cards {\n          ...BoardCardFields\n        }\n      }\n    }\n  }\n": typeof types.BoardDetailDocument,
+    "\n  query SearchCards($boardId: ID!, $filter: CardSearchFilter) {\n    searchCards(boardId: $boardId, filter: $filter) {\n      ...BoardCardFields\n      list {\n        id\n        name\n      }\n    }\n  }\n": typeof types.SearchCardsDocument,
     "\n  mutation CreateCard($input: CreateCardInput!) {\n    createCard(input: $input) {\n      ...BoardCardFields\n    }\n  }\n": typeof types.CreateCardDocument,
     "\n  mutation UpdateCard($cardId: ID!, $input: UpdateCardInput!) {\n    updateCard(id: $cardId, input: $input) {\n      ...BoardCardFields\n    }\n  }\n": typeof types.UpdateCardDocument,
     "\n  mutation MoveCard($cardId: ID!, $input: MoveCardInput!) {\n    moveCard(id: $cardId, input: $input) {\n      ...BoardCardFields\n    }\n  }\n": typeof types.MoveCardDocument,
@@ -28,6 +29,7 @@ const documents: Documents = {
     "\n  query BoardSummaries {\n    boards {\n      id\n      name\n      listCount\n      cardCount\n    }\n  }\n": types.BoardSummariesDocument,
     "\n  fragment BoardCardFields on Card {\n    id\n    listId\n    title\n    description\n    dueDate\n    isDueComplete\n    isOverdue\n    position\n    archivedAt\n    labels {\n      id\n      name\n      color\n    }\n  }\n": types.BoardCardFieldsFragmentDoc,
     "\n  query BoardDetail($boardId: ID!) {\n    board(id: $boardId) {\n      id\n      name\n      labels {\n        id\n        name\n        color\n      }\n      lists {\n        id\n        name\n        position\n        cards {\n          ...BoardCardFields\n        }\n      }\n    }\n  }\n": types.BoardDetailDocument,
+    "\n  query SearchCards($boardId: ID!, $filter: CardSearchFilter) {\n    searchCards(boardId: $boardId, filter: $filter) {\n      ...BoardCardFields\n      list {\n        id\n        name\n      }\n    }\n  }\n": types.SearchCardsDocument,
     "\n  mutation CreateCard($input: CreateCardInput!) {\n    createCard(input: $input) {\n      ...BoardCardFields\n    }\n  }\n": types.CreateCardDocument,
     "\n  mutation UpdateCard($cardId: ID!, $input: UpdateCardInput!) {\n    updateCard(id: $cardId, input: $input) {\n      ...BoardCardFields\n    }\n  }\n": types.UpdateCardDocument,
     "\n  mutation MoveCard($cardId: ID!, $input: MoveCardInput!) {\n    moveCard(id: $cardId, input: $input) {\n      ...BoardCardFields\n    }\n  }\n": types.MoveCardDocument,
@@ -47,6 +49,10 @@ export function graphql(source: "\n  fragment BoardCardFields on Card {\n    id\
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query BoardDetail($boardId: ID!) {\n    board(id: $boardId) {\n      id\n      name\n      labels {\n        id\n        name\n        color\n      }\n      lists {\n        id\n        name\n        position\n        cards {\n          ...BoardCardFields\n        }\n      }\n    }\n  }\n"): typeof import('./graphql').BoardDetailDocument;
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query SearchCards($boardId: ID!, $filter: CardSearchFilter) {\n    searchCards(boardId: $boardId, filter: $filter) {\n      ...BoardCardFields\n      list {\n        id\n        name\n      }\n    }\n  }\n"): typeof import('./graphql').SearchCardsDocument;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
