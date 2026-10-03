@@ -20,7 +20,18 @@
     "typescript/no-misused-promises": "error",
     "import/no-cycle": "error",
     "eqeqeq": "error",
-    "no-console": ["warn", { "allow": ["warn", "error", "info"] }]
+    "no-console": [
+      "warn",
+      {
+        "allow": ["warn", "error", "info"]
+      }
+    ],
+    "import/no-unassigned-import": [
+      "warn",
+      {
+        "allow": ["**/*.css", "@testing-library/jest-dom/vitest"]
+      }
+    ]
   },
   "overrides": [
     {
@@ -35,11 +46,15 @@
         "react-perf",
         "jsx-a11y"
       ],
-      "env": { "browser": true }
+      "env": {
+        "browser": true
+      }
     },
     {
       "files": ["apps/web-server-demo/**", "apps/chrome-ext-bff/**", "*.config.ts"],
-      "env": { "node": true }
+      "env": {
+        "node": true
+      }
     },
     {
       "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/test/**"],
