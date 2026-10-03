@@ -29,7 +29,13 @@
     "import/no-unassigned-import": [
       "warn",
       {
-        "allow": ["**/*.css", "@testing-library/jest-dom/vitest"]
+        "allow": ["**/*.css", "@testing-library/jest-dom/vitest", "reflect-metadata"]
+      }
+    ],
+    "typescript/no-extraneous-class": [
+      "warn",
+      {
+        "allowWithDecorator": true
       }
     ]
   },
@@ -54,6 +60,12 @@
       "files": ["apps/web-server-demo/**", "apps/chrome-ext-bff/**", "*.config.ts"],
       "env": {
         "node": true
+      }
+    },
+    {
+      "files": ["apps/web-server-demo/**"],
+      "rules": {
+        "typescript/consistent-type-imports": "off"
       }
     },
     {

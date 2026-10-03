@@ -4,7 +4,11 @@ import { defineConfig } from 'vitest/config';
 // runs everything at once and `pnpm test --project <name>` runs a single one.
 export default defineConfig({
   test: {
-    projects: ['apps/*/vitest.config.ts', 'packages/*/vitest.config.ts'],
+    projects: [
+      'apps/*/vitest.config.ts',
+      'apps/*/vitest.config.e2e.ts',
+      'packages/*/vitest.config.ts',
+    ],
     passWithNoTests: true,
   },
 });
