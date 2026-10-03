@@ -1,7 +1,7 @@
 {
   "extends": "@repo/tsconfig/react.json",
   "compilerOptions": {
-    "types": ["vite/client"]
+    "types": ["vite/client", "webmcp-types"]
   },
   "include": ["src", "vite.config.ts", "vitest.config.ts", "codegen.ts"]
 }

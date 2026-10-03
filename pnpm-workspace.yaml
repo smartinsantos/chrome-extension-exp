@@ -23,6 +23,7 @@ catalog:
 
   # Runtime libraries
   zod: 4.6.5
+  webmcp-types: 0.1.10
   react: 19.3.0
   react-dom: 19.3.0
   '@types/react': 19.3.0
