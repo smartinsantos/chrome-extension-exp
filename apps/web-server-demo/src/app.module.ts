@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 
 import { BoardsModule } from './boards/boards.module.js';
+import { CardsModule } from './cards/cards.module.js';
 import { ClockModule } from './clock/clock.module.js';
 import { ServerConfigModule } from './config/server-config.module.js';
 import { DatabaseModule } from './database/database.module.js';
@@ -23,6 +24,7 @@ import { HealthModule } from './health/health.module.js';
     }),
     HealthModule,
     BoardsModule,
+    CardsModule,
   ],
 })
 export class AppModule {}

@@ -1,0 +1,181 @@
+"""A board groups lists of cards, like a Trello board."""
+type Board {
+  """Active (not archived) cards on the board."""
+  cardCount: Int!
+
+  """When the board was created (ISO 8601 timestamp)."""
+  createdAt: String!
+  id: ID!
+
+  """Labels available on this board, A to Z."""
+  labels: [Label!]!
+  listCount: Int!
+
+  """The board's lists, left to right."""
+  lists: [BoardList!]!
+  name: String!
+}
+
+"""A column of cards on a board, such as "To Do" or "Done"."""
+type BoardList {
+  boardId: ID!
+
+  """Active cards in this list, top to bottom."""
+  cards: [Card!]!
+  id: ID!
+  name: String!
+
+  """Left-to-right order on the board, starting at 0."""
+  position: Int!
+}
+
+"""A task card that lives in one list of a board."""
+type Card {
+  """When the card was archived, or null if active."""
+  archivedAt: String
+  boardId: ID!
+  createdAt: String!
+  description: String!
+
+  """Due date as YYYY-MM-DD, or null."""
+  dueDate: String
+  id: ID!
+
+  """True once the work is done; a completed card is never overdue."""
+  isDueComplete: Boolean!
+
+  """Past its due date, not completed and not archived."""
+  isOverdue: Boolean!
+  labels: [Label!]!
+
+  """The list the card is in."""
+  list: BoardList!
+  listId: ID!
+
+  """Top-to-bottom order in its list, starting at 0."""
+  position: Int!
+  title: String!
+  updatedAt: String!
+}
+
+"""Where to put a card in a list."""
+enum CardPosition {
+  BOTTOM
+  TOP
+}
+
+"""Narrows a card search. All given conditions must match."""
+input CardSearchFilter {
+  """Include archived cards (default false)."""
+  includeArchived: Boolean
+
+  """Only cards past their due date and not completed."""
+  isOverdue: Boolean
+
+  """Cards with at least one of these labels."""
+  labelNames: [String!]
+  listId: ID
+
+  """Text found in the title or description (any case)."""
+  text: String
+}
+
+"""A new board. It starts with the lists To Do, Doing and Done."""
+input CreateBoardInput {
+  name: String!
+}
+
+"""A new card, added at the bottom of its list."""
+input CreateCardInput {
+  description: String
+
+  """YYYY-MM-DD"""
+  dueDate: String
+
+  """Existing label names of the board (any letter case)."""
+  labelNames: [String!]
+  listId: ID!
+  title: String!
+}
+
+"""A new list, added after the existing lists of the board."""
+input CreateListInput {
+  boardId: ID!
+  name: String!
+}
+
+"""A colored tag that can be put on cards of one board."""
+type Label {
+  color: LabelColor!
+  id: ID!
+  name: String!
+}
+
+"""Color of a board label."""
+enum LabelColor {
+  BLUE
+  GRAY
+  GREEN
+  ORANGE
+  PINK
+  PURPLE
+  RED
+  YELLOW
+}
+
+"""
+Where to move a card: a list on the same board, plus a position or an exact index.
+"""
+input MoveCardInput {
+  """0-based slot; past the end means the bottom."""
+  index: Int
+
+  """Defaults to BOTTOM."""
+  position: CardPosition
+  toListId: ID!
+}
+
+type Mutation {
+  """Hides a card from its list. Use restoreCard to undo."""
+  archiveCard(id: ID!): Card!
+  createBoard(input: CreateBoardInput!): Board!
+  createCard(input: CreateCardInput!): Card!
+  createList(input: CreateListInput!): BoardList!
+  moveCard(id: ID!, input: MoveCardInput!): Card!
+
+  """Brings an archived card back, at the bottom of its list."""
+  restoreCard(id: ID!): Card!
+  updateCard(id: ID!, input: UpdateCardInput!): Card!
+}
+
+type Query {
+  """One board, or null if the id is unknown."""
+  board(id: ID!): Board
+
+  """Every board, oldest first."""
+  boards: [Board!]!
+
+  """One card, or null if the id is unknown."""
+  card(id: ID!): Card
+
+  """Returns "ok" when the API is up."""
+  health: String!
+
+  """Cards on a board, in board order (list by list, top to bottom)."""
+  searchCards(boardId: ID!, filter: CardSearchFilter): [Card!]!
+}
+
+"""
+Fields to change on a card. Leave a field out to keep its current value.
+"""
+input UpdateCardInput {
+  description: String
+
+  """YYYY-MM-DD, or null to remove the due date."""
+  dueDate: String
+  isDueComplete: Boolean
+
+  """Replaces all labels on the card."""
+  labelNames: [String!]
+  title: String
+}

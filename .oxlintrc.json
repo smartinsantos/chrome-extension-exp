@@ -69,9 +69,10 @@
       }
     },
     {
-      "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/test/**"],
+      "files": ["**/*.e2e-spec.ts", "**/*.spec.ts", "**/*.test.ts", "**/*.test.tsx", "**/test/**"],
       "rules": {
-        "typescript/no-explicit-any": "off"
+        "typescript/no-explicit-any": "off",
+        "typescript/no-unsafe-type-assertion": "off"
       }
     }
   ],
