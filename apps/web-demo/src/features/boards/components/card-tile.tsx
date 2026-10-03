@@ -1,6 +1,9 @@
+import { cn } from '@repo/ui/lib/utils';
 import { AlignLeft } from 'lucide-react';
+import { useRef } from 'react';
 
 import type { BoardCardDetail, BoardListDetail } from '../board-types';
+import { useDraggableCard } from '../drag-and-drop/use-draggable-card';
 import { CardActionsMenu } from './card-actions-menu';
 import { DueDateBadge } from './due-date-badge';
 import { LabelChip } from './label-chip';
@@ -14,12 +17,19 @@ interface CardTileProps {
 }
 
 export function CardTile({ card, lists, onOpen, onMove, onArchive }: CardTileProps) {
+  const cardElementRef = useRef<HTMLElement>(null);
+  const { isDragging, closestEdge } = useDraggableCard(cardElementRef, card);
   const hasDetails = card.labels.length > 0 || card.dueDate !== null || card.description !== '';
   return (
     <article
+      ref={cardElementRef}
       aria-label={card.title}
-      className="group space-y-2 rounded-lg border bg-card p-3 text-card-foreground shadow-xs transition-shadow hover:shadow-sm"
+      className={cn(
+        'group relative space-y-2 rounded-lg border bg-card p-3 text-card-foreground shadow-xs transition-shadow hover:shadow-sm',
+        isDragging && 'opacity-40',
+      )}
     >
+      {closestEdge !== null && <DropIndicatorLine edge={closestEdge} />}
       <div className="flex items-start gap-2">
         <button
           type="button"
@@ -49,5 +59,18 @@ export function CardTile({ card, lists, onOpen, onMove, onArchive }: CardTilePro
         </div>
       )}
     </article>
+  );
+}
+
+/** Shows where a dragged card will land: a line just above or below this card. */
+function DropIndicatorLine({ edge }: { edge: 'top' | 'bottom' | 'left' | 'right' }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'pointer-events-none absolute inset-x-0 h-0.5 rounded-full bg-primary',
+        edge === 'top' ? '-top-[5px]' : '-bottom-[5px]',
+      )}
+    />
   );
 }

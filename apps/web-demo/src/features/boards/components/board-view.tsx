@@ -4,6 +4,8 @@ import { useState } from 'react';
 
 import { boardDetailQueryOptions } from '../api/board-queries';
 import { useCardMutations } from '../api/use-card-mutations';
+import { BoardInstanceContext } from '../drag-and-drop/board-drag-and-drop-context';
+import { useCardDropMonitor } from '../drag-and-drop/use-card-drop-monitor';
 import { BoardListColumn } from './board-list-column';
 import { CardDetailsDialog } from './card-details-dialog';
 import { QueryErrorMessage } from './query-error-message';
@@ -13,6 +15,10 @@ export function BoardView({ boardId }: { boardId: string }) {
   const { createCardMutation, updateCardMutation, moveCardMutation, archiveCardMutation } =
     useCardMutations(boardId);
   const [openCardId, setOpenCardId] = useState<string>();
+  const [boardInstanceId] = useState(() => Symbol(`board-${boardId}`));
+  useCardDropMonitor(boardInstanceId, (cardId, { toListId, index }) =>
+    moveCardMutation.mutate({ cardId, input: { toListId, index } }),
+  );
 
   if (boardQuery.isPending) {
     return (
@@ -39,35 +45,40 @@ export function BoardView({ boardId }: { boardId: string }) {
   const openCard = board.lists.flatMap((list) => list.cards).find((card) => card.id === openCardId);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <h1 className="px-6 pt-5 pb-3 text-xl font-semibold tracking-tight">{board.name}</h1>
-      <div className="flex min-h-0 flex-1 items-start gap-4 overflow-x-auto px-6 pb-6">
-        {listsInOrder.map((list) => (
-          <BoardListColumn
-            key={list.id}
-            list={list}
-            allLists={listsInOrder}
-            isAddingCard={createCardMutation.isPending}
-            onAddCard={(title) => createCardMutation.mutateAsync({ listId: list.id, title })}
-            onOpenCard={(card) => setOpenCardId(card.id)}
-            onMoveCard={(card, toListId) =>
-              moveCardMutation.mutate({ cardId: card.id, input: { toListId, position: 'BOTTOM' } })
-            }
-            onArchiveCard={(card) => archiveCardMutation.mutate(card.id)}
-          />
-        ))}
+    <BoardInstanceContext value={boardInstanceId}>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <h1 className="px-6 pt-5 pb-3 text-xl font-semibold tracking-tight">{board.name}</h1>
+        <div className="flex min-h-0 flex-1 items-start gap-4 overflow-x-auto px-6 pb-6">
+          {listsInOrder.map((list) => (
+            <BoardListColumn
+              key={list.id}
+              list={list}
+              allLists={listsInOrder}
+              isAddingCard={createCardMutation.isPending}
+              onAddCard={(title) => createCardMutation.mutateAsync({ listId: list.id, title })}
+              onOpenCard={(card) => setOpenCardId(card.id)}
+              onMoveCard={(card, toListId) =>
+                moveCardMutation.mutate({
+                  cardId: card.id,
+                  input: { toListId, position: 'BOTTOM' },
+                })
+              }
+              onArchiveCard={(card) => archiveCardMutation.mutate(card.id)}
+            />
+          ))}
+        </div>
+        <CardDetailsDialog
+          card={openCard}
+          boardLabels={board.labels}
+          isSaving={updateCardMutation.isPending}
+          onClose={() => setOpenCardId(undefined)}
+          onSave={async (input) => {
+            if (openCard === undefined) return;
+            await updateCardMutation.mutateAsync({ cardId: openCard.id, input });
+            setOpenCardId(undefined);
+          }}
+        />
       </div>
-      <CardDetailsDialog
-        card={openCard}
-        boardLabels={board.labels}
-        isSaving={updateCardMutation.isPending}
-        onClose={() => setOpenCardId(undefined)}
-        onSave={async (input) => {
-          if (openCard === undefined) return;
-          await updateCardMutation.mutateAsync({ cardId: openCard.id, input });
-          setOpenCardId(undefined);
-        }}
-      />
-    </div>
+    </BoardInstanceContext>
   );
 }

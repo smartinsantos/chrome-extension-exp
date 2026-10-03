@@ -67,6 +67,8 @@ catalog:
   '@tanstack/react-query-devtools': 5.104.1
   '@graphql-codegen/cli': 7.4.3
   '@graphql-codegen/client-preset': 6.2.0
+  '@atlaskit/pragmatic-drag-and-drop': 4.0.0
+  '@atlaskit/pragmatic-drag-and-drop-hitbox': 3.0.0
   '@graphql-typed-document-node/core': 3.2.0
 
 # Packages released too recently for pnpm's default release-age safety delay, allowed explicitly.

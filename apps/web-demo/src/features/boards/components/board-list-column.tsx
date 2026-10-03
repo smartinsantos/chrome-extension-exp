@@ -1,4 +1,8 @@
+import { cn } from '@repo/ui/lib/utils';
+import { useRef } from 'react';
+
 import type { BoardCardDetail, BoardListDetail } from '../board-types';
+import { useCardListDropTarget } from '../drag-and-drop/use-card-list-drop-target';
 import { AddCardComposer } from './add-card-composer';
 import { CardTile } from './card-tile';
 
@@ -21,6 +25,11 @@ export function BoardListColumn({
   onMoveCard,
   onArchiveCard,
 }: BoardListColumnProps) {
+  const cardListElementRef = useRef<HTMLOListElement>(null);
+  const { isCardOver } = useCardListDropTarget(cardListElementRef, {
+    id: list.id,
+    cardCount: list.cards.length,
+  });
   return (
     <section
       aria-label={list.name}
@@ -30,7 +39,13 @@ export function BoardListColumn({
         <h2 className="text-sm font-semibold">{list.name}</h2>
         <span className="text-xs text-muted-foreground">{list.cards.length}</span>
       </header>
-      <ol className="flex min-h-2 flex-col gap-2 overflow-y-auto">
+      <ol
+        ref={cardListElementRef}
+        className={cn(
+          'flex min-h-10 flex-col gap-2 overflow-y-auto rounded-lg transition-colors',
+          isCardOver && 'bg-primary/5',
+        )}
+      >
         {list.cards.map((card) => (
           <li key={card.id}>
             <CardTile
