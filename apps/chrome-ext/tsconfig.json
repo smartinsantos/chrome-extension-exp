@@ -1,0 +1,13 @@
+{
+  "extends": "./.wxt/tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "verbatimModuleSyntax": true,
+    "jsx": "react-jsx",
+    "types": ["webmcp-types"]
+  },
+  "include": [".wxt/wxt.d.ts", "src", "wxt.config.ts", "vitest.config.ts"]
+}

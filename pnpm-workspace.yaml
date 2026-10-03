@@ -72,6 +72,10 @@ catalog:
   '@atlaskit/pragmatic-drag-and-drop-hitbox': 3.0.0
   '@graphql-typed-document-node/core': 3.2.0
 
+  # Chrome extension
+  wxt: 0.21.4
+  '@wxt-dev/module-react': 1.2.2
+
 # Packages released too recently for pnpm's default release-age safety delay, allowed explicitly.
 minimumReleaseAgeExclude:
   - lucide-react@1.51.0
