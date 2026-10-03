@@ -71,3 +71,13 @@ export function describeConfigForLogs(config: BffConfig): string {
   const { ollamaApiKey: _secret, ...safeSettings } = config;
   return JSON.stringify(safeSettings);
 }
+
+/** For entry points: load the settings, or print what to fix and stop the process. */
+export function loadBffConfigOrExit(environment: Record<string, string | undefined>): BffConfig {
+  try {
+    return loadBffConfig(environment);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error);
+    return process.exit(1);
+  }
+}

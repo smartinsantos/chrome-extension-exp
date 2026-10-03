@@ -1,21 +1,12 @@
 import { serve } from '@hono/node-server';
 
-import { type BffConfig, describeConfigForLogs, loadBffConfig } from './config/bff-config';
+import { describeConfigForLogs, loadBffConfigOrExit } from './config/bff-config';
 import { createChatHandler } from './chat/handle-chat';
 import { createApp } from './http/create-app';
 import { createOllamaHealthCheck } from './ollama/check-ollama-health';
 import { createOllamaChatModel } from './ollama/create-ollama-model';
 
-function loadConfigOrExit(): BffConfig {
-  try {
-    return loadBffConfig(process.env);
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
-    return process.exit(1);
-  }
-}
-
-const config = loadConfigOrExit();
+const config = loadBffConfigOrExit(process.env);
 const app = createApp({
   config,
   checkOllamaHealth: createOllamaHealthCheck({

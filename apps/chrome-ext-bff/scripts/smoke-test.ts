@@ -4,11 +4,11 @@
  */
 import { jsonSchema, streamText, tool } from 'ai';
 
-import { describeConfigForLogs, loadBffConfig } from '../src/config/bff-config';
+import { describeConfigForLogs, loadBffConfigOrExit } from '../src/config/bff-config';
 import { createOllamaChatModel } from '../src/ollama/create-ollama-model';
 import { mapUpstreamError } from '../src/ollama/map-upstream-error';
 
-const config = loadBffConfig(process.env);
+const config = loadBffConfigOrExit(process.env);
 console.info(`Smoke test with ${describeConfigForLogs(config)}`);
 
 const result = streamText({
