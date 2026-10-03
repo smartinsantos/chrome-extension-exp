@@ -2,7 +2,7 @@
 
 A hands-on playground for learning **WebMCP** and **agentic workflows**: web pages describe the actions they offer as _tools_, and an AI agent living in a Chrome side panel discovers those tools and uses them for you.
 
-> **Status:** 🏗️ Server and web demo (with WebMCP tools) are working. The Chrome extension and the agent backend are next. See the [roadmap](#roadmap).
+> **Status:** 🏗️ Server, web demo (with WebMCP tools) and the Chrome extension's tool inspector are working. The AI agent backend is next. See the [roadmap](#roadmap).
 
 ## What is WebMCP, in one minute?
 
@@ -40,7 +40,7 @@ flowchart LR
 | [`packages/ui`](packages/ui)                         | Shared design system (shadcn/ui + Tailwind)                            | ✅ Ready   |
 | [`apps/web-server-demo`](apps/web-server-demo)       | NestJS GraphQL API that stores boards, lists and cards in SQLite       | ✅ Ready   |
 | [`apps/web-demo`](apps/web-demo)                     | A Trello-like board that exposes its actions as WebMCP tools           | ✅ Ready   |
-| `apps/chrome-ext`                                    | Side-panel extension that finds and runs WebMCP tools on any site      | 🔜 Phase 3 |
+| [`apps/chrome-ext`](apps/chrome-ext)                 | Side-panel extension that finds and runs WebMCP tools on any site      | ✅ Ready   |
 | `apps/chrome-ext-bff`                                | Agent backend that talks to Ollama Cloud and streams to the side panel | 🔜 Phase 4 |
 
 Want the bigger picture? Read the [architecture overview](docs/architecture.md).
@@ -105,7 +105,7 @@ Need just one package? Use pnpm's filter, for example `pnpm --filter @repo/agent
 | 0     | Workspace tooling                                             | ✅     |
 | 1     | Shared packages                                               | ✅     |
 | 2     | NestJS + SQLite server, Trello-like web demo, WebMCP tools    | ✅     |
-| 3     | Chrome extension that discovers and runs WebMCP tools by hand | 🔜     |
+| 3     | Chrome extension that discovers and runs WebMCP tools by hand | ✅     |
 | 4     | Agent backend on Ollama Cloud, with chat in the side panel    | 🔜     |
 | 5     | Polish, docs and experiments                                  | 🔜     |
 

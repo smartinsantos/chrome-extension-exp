@@ -69,7 +69,7 @@ flowchart TD
 
   tsconfig --> protocol
   tsconfig --> ui
-  protocol -.-> ext[chrome-ext 🔜]
+  protocol -.-> ext[chrome-ext ✅]
   protocol -.-> bff[chrome-ext-bff 🔜]
   ui -.-> ext
   ui -.-> web[web-demo ✅]
@@ -89,7 +89,7 @@ Shared packages ship their TypeScript source directly; there is no separate buil
 | -------------------------------------------- | ------ | --------------------------------------------------------------------------------- |
 | [`web-server-demo`](../apps/web-server-demo) | ✅     | [Data model, API and errors](../apps/web-server-demo/README.md)                   |
 | [`web-demo`](../apps/web-demo)               | ✅     | [The WebMCP tools it offers](../apps/web-demo/README.md#the-tools-agents-can-use) |
-| `chrome-ext`                                 | 🔜     | Phase 3                                                                           |
+| [`chrome-ext`](../apps/chrome-ext)           | ✅     | [Install, trust model and permissions](../apps/chrome-ext/README.md)              |
 | `chrome-ext-bff`                             | 🔜     | Phase 4                                                                           |
 
 ## Where to go next
