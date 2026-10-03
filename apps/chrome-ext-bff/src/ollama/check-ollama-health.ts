@@ -13,8 +13,8 @@ const DEFAULT_CACHE_DURATION_MS = 60_000;
 
 /**
  * Checks Ollama Cloud without spending tokens: `/api/tags` (public) lists the models, and
- * `/api/ps` only answers 200 to a valid API key. Results are cached briefly, because the side
- * panel asks for health often.
+ * `POST /api/me` (the signed-in account) answers 200 only to a valid API key. Results are cached
+ * briefly, because the side panel asks for health often.
  */
 export function createOllamaHealthCheck({
   baseUrl,
@@ -30,10 +30,13 @@ export function createOllamaHealthCheck({
     try {
       const [tagsResponse, authResponse] = await Promise.all([
         fetchImplementation(`${baseUrl}/api/tags`),
-        fetchImplementation(`${baseUrl}/api/ps`, {
+        fetchImplementation(`${baseUrl}/api/me`, {
+          method: 'POST',
           headers: { authorization: `Bearer ${apiKey}` },
         }),
       ]);
+      // Only the status matters; the body holds the account's personal details, so it's discarded.
+      await authResponse.body?.cancel();
       return {
         reachable: true,
         authOk: authResponse.ok,

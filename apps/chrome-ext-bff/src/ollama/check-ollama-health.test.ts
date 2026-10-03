@@ -4,18 +4,24 @@ import { createOllamaHealthCheck } from './check-ollama-health';
 
 const BASE_URL = 'https://ollama.com';
 
-function fakeOllama(options: { psStatus?: number; models?: string[]; offline?: boolean }) {
+/** Answers the way Ollama Cloud does (checked against the live service). */
+function fakeOllama(options: { models?: string[]; offline?: boolean }) {
   return vi.fn<typeof fetch>(async (input, init) => {
     if (options.offline === true) throw new TypeError('fetch failed');
     const url = input instanceof Request ? input.url : input.toString();
+    const hasGoodKey = new Headers(init?.headers).get('authorization') === 'Bearer good-key';
     if (url === `${BASE_URL}/api/tags`) {
       return Response.json({ models: (options.models ?? []).map((name) => ({ name })) });
     }
+    if (url === `${BASE_URL}/api/me`) {
+      if (init?.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+      return hasGoodKey
+        ? Response.json({ Name: 'someone', Email: 'someone@example.com', Plan: 'free' })
+        : Response.json({ error: 'unauthorized' }, { status: 401 });
+    }
+    // Ollama Cloud doesn't serve the local running-models list, even to a valid key.
     if (url === `${BASE_URL}/api/ps`) {
-      const sentKey = new Headers(init?.headers).get('authorization');
-      return new Response('{}', {
-        status: sentKey === 'Bearer good-key' ? (options.psStatus ?? 200) : 401,
-      });
+      return Response.json({ error: 'unauthorized' }, { status: 401 });
     }
     return new Response('not found', { status: 404 });
   });
