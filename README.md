@@ -66,7 +66,7 @@ pnpm --filter chrome-ext-bff smoke                             # optional: check
 pnpm dev                                                       # API :4000, web demo :5173, agent :8787, extension build
 ```
 
-Then load the extension: open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick `apps/chrome-ext/.output/chrome-mv3-dev`. Open <http://localhost:5173> and click the extension's icon.
+Then load the extension: open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick `apps/chrome-ext/dist/chrome-mv3-dev`. Open <http://localhost:5173> and click the extension's icon.
 
 The [demo walkthrough](docs/demo-walkthrough.md) shows what to try next.
 

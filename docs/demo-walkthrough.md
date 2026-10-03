@@ -6,12 +6,12 @@ A 10-minute tour that shows the whole idea: a web page offers its actions as too
 
 You need the full setup from the [README](../README.md#getting-started). The short version:
 
-| Step | Command or action                                                                                                            |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 1    | Chrome 154+ with `chrome://flags/#enable-webmcp-testing` **Enabled** (then relaunch)                                         |
-| 2    | `apps/chrome-ext-bff/.env` with your `OLLAMA_API_KEY` ([how](../apps/chrome-ext-bff/README.md#set-it-up))                    |
-| 3    | `pnpm dev` (starts the API, the web demo, the agent backend and the extension build)                                         |
-| 4    | Load `apps/chrome-ext/.output/chrome-mv3-dev` unpacked in `chrome://extensions` ([how](../apps/chrome-ext/README.md#try-it)) |
+| Step | Command or action                                                                                                         |
+| ---- | ------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Chrome 154+ with `chrome://flags/#enable-webmcp-testing` **Enabled** (then relaunch)                                      |
+| 2    | `apps/chrome-ext-bff/.env` with your `OLLAMA_API_KEY` ([how](../apps/chrome-ext-bff/README.md#set-it-up))                 |
+| 3    | `pnpm dev` (starts the API, the web demo, the agent backend and the extension build)                                      |
+| 4    | Load `apps/chrome-ext/dist/chrome-mv3-dev` unpacked in `chrome://extensions` ([how](../apps/chrome-ext/README.md#try-it)) |
 
 ## 1. Meet the page's tools
 

@@ -87,7 +87,6 @@
   "ignorePatterns": [
     "**/node_modules/**",
     "**/dist/**",
-    "**/.output/**",
     "**/.wxt/**",
     "**/src/gql/**",
     "**/routeTree.gen.ts",

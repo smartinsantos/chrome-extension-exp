@@ -18,7 +18,7 @@ It's built with [WXT](https://wxt.dev), [React](https://react.dev) and the share
    pnpm --filter chrome-ext build      # or `pnpm --filter chrome-ext dev` to rebuild on changes
    ```
 
-3. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and choose `apps/chrome-ext/.output/chrome-mv3`. With `dev`, choose `.output/chrome-mv3-dev`.
+3. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and choose `apps/chrome-ext/dist/chrome-mv3`. With `dev`, choose `dist/chrome-mv3-dev`.
 4. Open a page with WebMCP tools (for example the [web demo](../web-demo) at <http://localhost:5173>) and click the extension's toolbar icon. The side panel opens, and the badge on the icon shows how many tools the page offers.
 
 The extension always has the same id, `dmnphemkaphmemfkmonbngjofhmbenck`, on every computer (see [Why the id never changes](#why-the-id-never-changes)).
@@ -110,9 +110,9 @@ openssl rsa -in private-key.pem -pubout -outform DER | base64     # → manifest
 
 ## Scripts
 
-| Command                          | What it does                                                    |
-| -------------------------------- | --------------------------------------------------------------- |
-| `pnpm --filter chrome-ext dev`   | Builds to `.output/chrome-mv3-dev` and rebuilds on every change |
-| `pnpm --filter chrome-ext build` | Production build in `.output/chrome-mv3`                        |
-| `pnpm --filter chrome-ext test`  | Unit and component tests (with WXT's fake browser)              |
-| `pnpm --filter chrome-ext zip`   | Packs the build into a zip                                      |
+| Command                          | What it does                                                 |
+| -------------------------------- | ------------------------------------------------------------ |
+| `pnpm --filter chrome-ext dev`   | Builds to `dist/chrome-mv3-dev` and rebuilds on every change |
+| `pnpm --filter chrome-ext build` | Production build in `dist/chrome-mv3`                        |
+| `pnpm --filter chrome-ext test`  | Unit and component tests (with WXT's fake browser)           |
+| `pnpm --filter chrome-ext zip`   | Packs the build into a zip                                   |

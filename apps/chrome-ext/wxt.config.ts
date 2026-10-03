@@ -11,6 +11,7 @@ const EXTENSION_PUBLIC_KEY =
 
 export default defineConfig({
   srcDir: 'src',
+  outDir: 'dist',
   modules: ['@wxt-dev/module-react'],
   vite: () => ({ plugins: [tailwindcss()] }),
   // The extension is loaded into your own (WebMCP-flagged) Chrome, not a throwaway profile.
