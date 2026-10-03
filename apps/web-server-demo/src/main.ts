@@ -3,10 +3,10 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from './app.module.js';
-import { loadServerConfig } from './config/server-config.js';
+import { SERVER_CONFIG, type ServerConfig } from './config/server-config.js';
 
-const serverConfig = loadServerConfig(process.env);
 const app = await NestFactory.create(AppModule);
+const serverConfig = app.get<ServerConfig>(SERVER_CONFIG);
 app.enableCors({ origin: serverConfig.corsOrigin });
 app.enableShutdownHooks();
 await app.listen(serverConfig.port);
