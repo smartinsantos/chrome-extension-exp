@@ -26,6 +26,7 @@ export interface NormalizedToolList {
 
 const UNNAMED_TOOL_LABEL = '(unnamed)';
 const TRUNCATION_MARKER = '… [truncated]';
+const utf8Encoder = new TextEncoder();
 const EMPTY_INPUT_SCHEMA: ToolInputSchema = { type: 'object', properties: {} };
 
 type InputSchemaResult =
@@ -124,18 +125,42 @@ function normalizeInputSchema(rawInputSchema: unknown): InputSchemaResult {
     return { isValid: false, reason: 'invalid-input-schema' };
   }
 
-  const serializedInputSchema = JSON.stringify(parsedInputSchema);
-  if (
-    new TextEncoder().encode(serializedInputSchema).length >
-    UNTRUSTED_INPUT_LIMITS.maxInputSchemaBytes
-  ) {
-    return { isValid: false, reason: 'input-schema-too-large' };
+  // The shape check must come before serializing: it is bounded, while JSON.stringify can
+  // overflow the stack, loop on self-references, or explode on heavily shared sub-objects.
+  const shapeProblem = findJsonShapeProblem(parsedInputSchema);
+  if (shapeProblem !== undefined) {
+    return { isValid: false, reason: shapeProblem };
   }
-  if (measureJsonDepth(parsedInputSchema) > UNTRUSTED_INPUT_LIMITS.maxInputSchemaJsonDepth) {
-    return { isValid: false, reason: 'input-schema-too-deep' };
+  const serializedSize = utf8Encoder.encode(JSON.stringify(parsedInputSchema)).length;
+  if (serializedSize > UNTRUSTED_INPUT_LIMITS.maxInputSchemaBytes) {
+    return { isValid: false, reason: 'input-schema-too-large' };
   }
 
   return { isValid: true, inputSchema: { ...parsedInputSchema, type: 'object' } };
+}
+
+/**
+ * Walks a schema with two hard bounds, so hostile input can never hang or crash the walk:
+ * - depth: how many objects/arrays sit inside one another (a flat object is depth 1);
+ * - node count: every serialized JSON value takes at least one byte, so a schema within the
+ *   byte limit can't contain more values than the byte limit allows.
+ */
+function findJsonShapeProblem(rootValue: unknown): ToolRejectionReason | undefined {
+  const maxNodeCount = UNTRUSTED_INPUT_LIMITS.maxInputSchemaBytes;
+  const pending: { value: unknown; depth: number }[] = [{ value: rootValue, depth: 1 }];
+  let visitedNodeCount = 0;
+
+  for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
+    const { value, depth } = next;
+    visitedNodeCount++;
+    if (visitedNodeCount > maxNodeCount) return 'input-schema-too-large';
+    if (value === null || typeof value !== 'object') continue;
+    if (depth > UNTRUSTED_INPUT_LIMITS.maxInputSchemaJsonDepth) return 'input-schema-too-deep';
+
+    const children: unknown[] = Array.isArray(value) ? value : Object.values(value);
+    for (const child of children) pending.push({ value: child, depth: depth + 1 });
+  }
+  return undefined;
 }
 
 function normalizeAnnotations(rawAnnotations: unknown): ToolAnnotations {
@@ -145,17 +170,6 @@ function normalizeAnnotations(rawAnnotations: unknown): ToolAnnotations {
     consequentialHint: Boolean(annotations['consequentialHint']),
     untrustedContentHint: Boolean(annotations['untrustedContentHint']),
   };
-}
-
-/** Depth of nested objects and arrays; a flat object has depth 1. */
-function measureJsonDepth(value: unknown): number {
-  if (value === null || typeof value !== 'object') return 0;
-  const children = Array.isArray(value) ? value : Object.values(value);
-  let deepestChild = 0;
-  for (const child of children) {
-    deepestChild = Math.max(deepestChild, measureJsonDepth(child));
-  }
-  return 1 + deepestChild;
 }
 
 function truncate(text: string, maxLength: number): string {

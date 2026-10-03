@@ -101,6 +101,37 @@ describe('normalizeToolDescriptors', () => {
     expect(rejectedTools).toEqual([{ name: 'move_card', reason: 'input-schema-too-deep' }]);
   });
 
+  it('rejects an extremely deep input schema without overflowing the call stack', () => {
+    const inputSchema = inputSchemaWithJsonDepth(100_000);
+
+    const { rejectedTools } = normalizeToolDescriptors([rawTool({ inputSchema })], PAGE_ORIGIN);
+
+    expect(rejectedTools).toEqual([{ name: 'move_card', reason: 'input-schema-too-deep' }]);
+  });
+
+  it('rejects a self-referencing input schema instead of throwing', () => {
+    const inputSchema: Record<string, unknown> = { type: 'object', properties: {} };
+    inputSchema['self'] = inputSchema;
+
+    const { rejectedTools } = normalizeToolDescriptors([rawTool({ inputSchema })], PAGE_ORIGIN);
+
+    expect(rejectedTools).toEqual([{ name: 'move_card', reason: 'input-schema-too-deep' }]);
+  });
+
+  it('rejects a schema that reuses the same object many times instead of walking every path', () => {
+    let sharedLevel: Record<string, unknown> = {};
+    for (let level = 0; level < 20; level++) {
+      const fanOut: Record<string, unknown> = {};
+      for (let branch = 0; branch < 50; branch++) fanOut[`branch${branch}`] = sharedLevel;
+      sharedLevel = fanOut;
+    }
+    const inputSchema = { type: 'object', properties: {}, 'x-extra': sharedLevel };
+
+    const { rejectedTools } = normalizeToolDescriptors([rawTool({ inputSchema })], PAGE_ORIGIN);
+
+    expect(rejectedTools).toEqual([{ name: 'move_card', reason: 'input-schema-too-large' }]);
+  }, 1000);
+
   it('accepts an input schema nested exactly at the depth limit', () => {
     const inputSchema = inputSchemaWithJsonDepth(UNTRUSTED_INPUT_LIMITS.maxInputSchemaJsonDepth);
 

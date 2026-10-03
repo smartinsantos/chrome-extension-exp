@@ -16,7 +16,11 @@ export type ToolAnnotations = z.infer<typeof toolAnnotationsSchema>;
 
 /** A WebMCP tool after normalization: the shape the extension sends and the BFF accepts. */
 export const webMcpToolDescriptorSchema = z.object({
-  name: z.string().trim().min(1).max(UNTRUSTED_INPUT_LIMITS.maxToolNameLength),
+  // Never trim: the name must stay byte-identical so the page can still find the tool.
+  name: z
+    .string()
+    .max(UNTRUSTED_INPUT_LIMITS.maxToolNameLength)
+    .refine((name) => name.trim() !== '', 'name must not be blank'),
   title: z.string().max(UNTRUSTED_INPUT_LIMITS.maxToolTitleLength).optional(),
   description: z.string().max(UNTRUSTED_INPUT_LIMITS.maxToolDescriptionLength),
   inputSchema: toolInputSchemaSchema,
