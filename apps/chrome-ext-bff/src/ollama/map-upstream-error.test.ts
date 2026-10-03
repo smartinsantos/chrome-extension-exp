@@ -27,6 +27,13 @@ describe('mapUpstreamError', () => {
     });
   });
 
+  it('finds the status on the wrapped cause, as the Ollama provider reports it', () => {
+    const responseError = Object.assign(new Error('Unauthorized'), { status_code: 401 });
+    const providerError = new Error('Unauthorized', { cause: responseError });
+
+    expect(mapUpstreamError(providerError)).toMatchObject({ code: 'upstream_auth' });
+  });
+
   it('also reads AI SDK style statusCode fields', () => {
     expect(mapUpstreamError(Object.assign(new Error('x'), { statusCode: 401 }))).toMatchObject({
       code: 'upstream_auth',

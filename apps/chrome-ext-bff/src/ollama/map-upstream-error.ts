@@ -60,11 +60,20 @@ export function mapUpstreamError(error: unknown): UpstreamFailure | undefined {
   return undefined;
 }
 
-/** The Ollama client uses `status_code`; AI SDK errors use `statusCode`. */
+const MAX_CAUSE_DEPTH = 5;
+
+/**
+ * The HTTP status, wherever it is: the Ollama client uses `status_code`, AI SDK errors use
+ * `statusCode`, and the provider wraps the client's error, putting the original in `cause`.
+ */
 function readStatusCode(error: Error): number | undefined {
-  for (const field of ['status_code', 'statusCode', 'status']) {
-    const value: unknown = Reflect.get(error, field);
-    if (typeof value === 'number') return value;
+  let current: unknown = error;
+  for (let depth = 0; depth < MAX_CAUSE_DEPTH && current instanceof Error; depth++) {
+    for (const field of ['status_code', 'statusCode', 'status']) {
+      const value: unknown = Reflect.get(current, field);
+      if (typeof value === 'number') return value;
+    }
+    current = current.cause;
   }
   return undefined;
 }

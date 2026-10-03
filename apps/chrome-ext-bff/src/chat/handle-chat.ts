@@ -1,0 +1,88 @@
+import {
+  chatRequestBodySchema,
+  createApiErrorBody,
+  normalizeToolDescriptors,
+} from '@repo/agent-protocol';
+import {
+  type LanguageModel,
+  convertToModelMessages,
+  createUIMessageStreamResponse,
+  safeValidateUIMessages,
+  streamText,
+  toUIMessageStream,
+} from 'ai';
+
+import { mapUpstreamError } from '../ollama/map-upstream-error';
+import { buildPageToolSet } from './build-page-tools';
+import { buildSystemPrompt } from './system-prompt';
+import { truncateToolOutputs } from './truncate-tool-outputs';
+
+interface ChatHandlerOptions {
+  model: LanguageModel;
+  maxToolResultChars: number;
+  today?: () => string;
+}
+
+const UNEXPECTED_ERROR_MESSAGE = 'The agent hit an unexpected error. Check the BFF logs.';
+
+/**
+ * Handles one chat turn: validates what the side panel sent, offers the page's tools to the
+ * model, and streams the answer (text and tool calls) back as AI SDK UI message chunks.
+ */
+export function createChatHandler({
+  model,
+  maxToolResultChars,
+  today = () => new Date().toISOString().slice(0, 10),
+}: ChatHandlerOptions) {
+  return async (request: Request): Promise<Response> => {
+    const rawBody: unknown = await request.json().catch(() => undefined);
+    const parsedBody = chatRequestBodySchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      return Response.json(
+        createApiErrorBody(
+          'invalid_request',
+          'The chat request is not valid.',
+          parsedBody.error.issues,
+        ),
+        { status: 400 },
+      );
+    }
+    const { messages, pageContext } = parsedBody.data;
+
+    const validatedMessages = await safeValidateUIMessages({ messages });
+    if (!validatedMessages.success) {
+      return Response.json(createApiErrorBody('invalid_request', validatedMessages.error.message), {
+        status: 400,
+      });
+    }
+
+    // The extension already checked the tools, but the BFF never trusts its callers' input.
+    const { tools: pageTools } = normalizeToolDescriptors(pageContext.tools, pageContext.origin);
+    const { toolSet } = buildPageToolSet(pageTools);
+
+    const result = streamText({
+      model,
+      instructions: buildSystemPrompt(pageContext, today()),
+      messages: await convertToModelMessages(
+        truncateToolOutputs(validatedMessages.data, maxToolResultChars),
+      ),
+      tools: toolSet,
+      abortSignal: request.signal,
+      // Errors are reported once, below, where they are turned into a message for the user.
+      onError: () => undefined,
+    });
+
+    return createUIMessageStreamResponse({
+      stream: toUIMessageStream({
+        stream: result.stream,
+        onError: (error) => {
+          const upstreamFailure = mapUpstreamError(error);
+          if (upstreamFailure === undefined) console.error('Chat request failed:', error);
+          return upstreamFailure?.message ?? UNEXPECTED_ERROR_MESSAGE;
+        },
+        messageMetadata: ({ part }) =>
+          part.type === 'finish' ? { totalTokens: part.totalUsage.totalTokens } : undefined,
+      }),
+    });
+  };
+}
