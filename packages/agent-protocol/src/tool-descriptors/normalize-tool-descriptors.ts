@@ -1,23 +1,11 @@
 import type {
+  RejectedTool,
   ToolAnnotations,
   ToolInputSchema,
+  ToolRejectionReason,
   WebMcpToolDescriptor,
 } from './tool-descriptor-schema';
 import { UNTRUSTED_INPUT_LIMITS } from './untrusted-input-limits';
-
-export type ToolRejectionReason =
-  | 'invalid-shape'
-  | 'name-too-long'
-  | 'duplicate-name'
-  | 'invalid-input-schema'
-  | 'input-schema-too-large'
-  | 'input-schema-too-deep'
-  | 'over-tool-limit';
-
-export interface RejectedTool {
-  name: string;
-  reason: ToolRejectionReason;
-}
 
 export interface NormalizedToolList {
   tools: WebMcpToolDescriptor[];

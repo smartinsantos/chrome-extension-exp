@@ -137,10 +137,10 @@ function CardDetailsForm({ card, boardLabels, isSaving, onCancel, onSave }: Card
             onChange={(event) => setDueDate(event.target.value)}
           />
         </div>
-        <label className="flex items-center gap-2 pb-1.5 text-sm">
-          <Switch checked={isDueComplete} onCheckedChange={setIsDueComplete} />
-          Done
-        </label>
+        <span className="flex items-center gap-2 pb-1.5 text-sm">
+          <Switch checked={isDueComplete} onCheckedChange={setIsDueComplete} aria-label="Done" />
+          <span aria-hidden>Done</span>
+        </span>
       </div>
       {boardLabels.length > 0 && (
         <fieldset className="space-y-1.5">

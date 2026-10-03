@@ -1,4 +1,4 @@
-import { webMcpToolDescriptorSchema } from '@repo/agent-protocol';
+import { rejectedToolSchema, webMcpToolDescriptorSchema } from '@repo/agent-protocol';
 import { z } from 'zod';
 
 /*
@@ -53,7 +53,7 @@ export const toolListResponseSchema = z.discriminatedUnion('status', [
     status: z.literal('ok'),
     origin: z.string(),
     tools: z.array(webMcpToolDescriptorSchema),
-    rejectedTools: z.array(z.object({ name: z.string(), reason: z.string() })),
+    rejectedTools: z.array(rejectedToolSchema),
   }),
   z.object({
     status: z.literal('unsupported'),

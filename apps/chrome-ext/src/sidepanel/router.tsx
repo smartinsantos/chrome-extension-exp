@@ -9,8 +9,8 @@ import {
 
 import { SidePanelLayout } from './side-panel-layout';
 import { ChatView } from './views/chat-view';
-import { SettingsView } from './views/settings-view';
-import { ToolsView } from './views/tools-view';
+import { SettingsView } from './views/settings/settings-view';
+import { ToolsView } from './views/tools/tools-view';
 
 interface SidePanelRouterContext {
   queryClient: QueryClient;

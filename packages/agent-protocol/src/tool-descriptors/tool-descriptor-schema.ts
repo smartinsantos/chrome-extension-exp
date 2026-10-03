@@ -28,3 +28,18 @@ export const webMcpToolDescriptorSchema = z.object({
   origin: z.string().min(1),
 });
 export type WebMcpToolDescriptor = z.infer<typeof webMcpToolDescriptorSchema>;
+
+/** Why a tool a page offered was left out (pages are untrusted input). */
+export const toolRejectionReasonSchema = z.enum([
+  'invalid-shape',
+  'name-too-long',
+  'duplicate-name',
+  'invalid-input-schema',
+  'input-schema-too-large',
+  'input-schema-too-deep',
+  'over-tool-limit',
+]);
+export type ToolRejectionReason = z.infer<typeof toolRejectionReasonSchema>;
+
+export const rejectedToolSchema = z.object({ name: z.string(), reason: toolRejectionReasonSchema });
+export type RejectedTool = z.infer<typeof rejectedToolSchema>;

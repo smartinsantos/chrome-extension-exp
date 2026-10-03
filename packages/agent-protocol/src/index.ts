@@ -8,11 +8,13 @@ export {
 export {
   normalizeToolDescriptors,
   type NormalizedToolList,
-  type RejectedTool,
-  type ToolRejectionReason,
 } from './tool-descriptors/normalize-tool-descriptors';
 export {
+  rejectedToolSchema,
   toolAnnotationsSchema,
+  toolRejectionReasonSchema,
+  type RejectedTool,
+  type ToolRejectionReason,
   toolInputSchemaSchema,
   webMcpToolDescriptorSchema,
   type ToolAnnotations,
