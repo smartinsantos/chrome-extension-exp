@@ -46,13 +46,25 @@ const RESTRICTED_URL_PREFIXES = [
 
 export async function loadActiveTabTools(): Promise<ActiveTabTools> {
   const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
-  if (activeTab?.id === undefined || activeTab.url === undefined) return { kind: 'no-tab' };
+  return loadToolsForTab(activeTab);
+}
+
+/** The tools of one specific tab, such as the tab a chat is bound to (even if not active). */
+export async function loadToolsForTabId(tabId: number): Promise<ActiveTabTools> {
+  const tab = await browser.tabs.get(tabId).catch(() => undefined);
+  return loadToolsForTab(tab);
+}
+
+async function loadToolsForTab(
+  tab: { id?: number; url?: string; title?: string } | undefined,
+): Promise<ActiveTabTools> {
+  if (tab?.id === undefined || tab.url === undefined) return { kind: 'no-tab' };
 
   const page: ActiveTabPage = {
-    tabId: activeTab.id,
-    url: activeTab.url,
-    title: activeTab.title ?? '',
-    origin: URL.canParse(activeTab.url) ? new URL(activeTab.url).origin : activeTab.url,
+    tabId: tab.id,
+    url: tab.url,
+    title: tab.title ?? '',
+    origin: URL.canParse(tab.url) ? new URL(tab.url).origin : tab.url,
   };
   if (RESTRICTED_URL_PREFIXES.some((prefix) => page.url.startsWith(prefix))) {
     return { kind: 'restricted-page', ...page };

@@ -8,7 +8,7 @@ import {
 } from '@tanstack/react-router';
 
 import { SidePanelLayout } from './side-panel-layout';
-import { ChatView } from './views/chat-view';
+import { ChatView } from './views/chat/chat-view';
 import { SettingsView } from './views/settings/settings-view';
 import { ToolsView } from './views/tools/tools-view';
 
