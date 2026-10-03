@@ -5,21 +5,21 @@
 
 **Goal:** A pnpm and Turborepo TypeScript monorepo for learning, testing and showing off WebMCP and agentic workflows. A Chrome side-panel extension finds and calls WebMCP tools on **any WebMCP-enabled site**, including our Trello-style demo app, and a BFF agent backed by **free-tier Ollama Cloud models** (through Ollama's hosted API, with nothing running locally) drives those calls.
 
-**Architecture:** `web-demo` (a Trello-like React SPA) registers WebMCP tools with `document.modelContext.registerTool()`. Global tools are always registered; board tools are registered only while a board is open. Each tool calls the app's real GraphQL actions against `web-server-demo` (NestJS + SQLite). The `chrome-ext` side panel finds tools on the active tab through a content script that calls `document.modelContext.getTools()`, then sends the prompt and tool descriptors to `chrome-ext-bff` (Hono + Vercel AI SDK + Ollama). The BFF streams back text and *client-side tool calls*. The side panel runs each call in the page with `document.modelContext.executeTool()`, behind a per-origin approval gate, and posts the result back.
+**Architecture:** `web-demo` (a Trello-like React SPA) registers WebMCP tools with `document.modelContext.registerTool()`. Global tools are always registered; board tools are registered only while a board is open. Each tool calls the app's real GraphQL actions against `web-server-demo` (NestJS + SQLite). The `chrome-ext` side panel finds tools on the active tab through a content script that calls `document.modelContext.getTools()`, then sends the prompt and tool descriptors to `chrome-ext-bff` (Hono + Vercel AI SDK + Ollama). The BFF streams back text and _client-side tool calls_. The side panel runs each call in the page with `document.modelContext.executeTool()`, behind a per-origin approval gate, and posts the result back.
 
 **Tech stack:** Node 24 LTS · pnpm 12 · Turborepo 2 · TypeScript 6.0 · oxlint + Prettier · React 19.3 · Vite 8 · TanStack Router and Query · Tailwind 4 · shadcn/ui · Vitest 5 · WXT 0.21 · Hono 4 · AI SDK 7 + `ai-sdk-ollama` · Ollama Cloud API (`https://ollama.com/api`) · NestJS 12 · Apollo Server 5 · `node:sqlite` · GraphQL Codegen.
 
 ## Decisions log
 
-| # | Question | Decision (2026-10-03) |
-|---|---|---|
-| 1 | LLM provider | **Ollama Cloud API, free-tier models only.** No local models and no local Ollama install. No Anthropic. (Revised 2026-10-03 after reading the user's ollama.com/settings page; see §3.) |
-| 2 | Chrome setup | Enable `#enable-webmcp-testing` in the **main Chrome profile**; load the extension unpacked there. |
-| 3 | Demo domain | **Trello-like board**: boards, lists, cards, labels. |
-| 4 | Persistence | **SQLite** |
-| 5 | Linting | **oxlint + Prettier** |
-| 6 | CI and remote | **Local only** for now. No GitHub Actions, no remote. |
-| 7 | Extension scope | **Any site that uses WebMCP** |
+| #   | Question        | Decision (2026-10-03)                                                                                                                                                                   |
+| --- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | LLM provider    | **Ollama Cloud API, free-tier models only.** No local models and no local Ollama install. No Anthropic. (Revised 2026-10-03 after reading the user's ollama.com/settings page; see §3.) |
+| 2   | Chrome setup    | Enable `#enable-webmcp-testing` in the **main Chrome profile**; load the extension unpacked there.                                                                                      |
+| 3   | Demo domain     | **Trello-like board**: boards, lists, cards, labels.                                                                                                                                    |
+| 4   | Persistence     | **SQLite**                                                                                                                                                                              |
+| 5   | Linting         | **oxlint + Prettier**                                                                                                                                                                   |
+| 6   | CI and remote   | **Local only** for now. No GitHub Actions, no remote.                                                                                                                                   |
+| 7   | Extension scope | **Any site that uses WebMCP**                                                                                                                                                           |
 
 ---
 
@@ -29,20 +29,20 @@ Researched on 2026-10-03. Sources are listed at the end of this document.
 
 ### 1.1 What WebMCP is today
 
-| Aspect | Finding | Confidence |
-|---|---|---|
-| Spec | W3C Web Machine Learning **Community Group Draft Report**, last updated **2026-10-02**. Not a standards-track spec yet. | High |
-| Entry point | **`document.modelContext`** (`[SecureContext]`). The older `navigator.modelContext` was **deprecated in Chrome 150**. Use only `document.modelContext`. | High |
-| Provider API | `registerTool({ name, title?, description, inputSchema?, annotations?, execute }, { signal?, exposedTo? })` returns a Promise. **There is no `unregisterTool()`.** To unregister, abort the `AbortSignal` you passed at registration. | High |
-| `execute` callback | `(inputObject, { signal }) => any \| Promise<any>`. The return value is **JSON-serialized** to a string for the caller. | High |
-| Annotations | `readOnlyHint`, `untrustedContentHint`, `consequentialHint`, `debugging` (all default `false`). **These are self-declared by the site, so a site can lie.** | High |
-| Consumer API | `getTools({ fromOrigins? })` returns `RegisteredTool[]` (`name, title, description, inputSchema, window, origin, annotations`). `executeTool(tool, inputObject, { signal? })` returns `Promise<string>`. | High (spec + official inspector source) |
-| Events | `toolchange` fires when tools are registered or unregistered. `toolactivated` and `toolcancel` carry a `toolName`. | High |
-| Declarative API | Chrome supports form attributes `toolname`, `tooldescription`, `toolautosubmit` and `toolparamdescription`, plus `SubmitEvent.agentInvoked`, `SubmitEvent.respondWith()` and the `:tool-form-active` / `:tool-submit-active` pseudo-classes. **The spec still marks this as a TODO.** | Medium |
-| Permissions and frames | `tools` Permissions-Policy feature, default `self`. Cross-origin iframe tools need `allow="tools"` plus `exposedTo` on the provider side and `fromOrigins` on the consumer side. | High |
-| Scope | **Tools only.** No MCP resources or prompts. No headless use; the design assumes a human in the loop and a visible tab. | High |
-| Chrome availability | Early preview in 146 (Canary only). **Origin trial runs Chrome 149–156.** For local development use the flag `chrome://flags/#enable-webmcp-testing`. The official Model Context Tool Inspector needs **≥ 150.0.7861.0** with the flag on. Current Stable (Mac) is **154.0.8037.98**. | High for the versions |
-| Argument format quirk | `executeTool` first took a **JSON string** of arguments and later moved to a **plain object**. The string form is deprecated **from Chrome 155**. The official inspector tries the object form first and falls back to the string form on a `Failed to parse input` error. | High |
+| Aspect                 | Finding                                                                                                                                                                                                                                                                               | Confidence                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| Spec                   | W3C Web Machine Learning **Community Group Draft Report**, last updated **2026-10-02**. Not a standards-track spec yet.                                                                                                                                                               | High                                    |
+| Entry point            | **`document.modelContext`** (`[SecureContext]`). The older `navigator.modelContext` was **deprecated in Chrome 150**. Use only `document.modelContext`.                                                                                                                               | High                                    |
+| Provider API           | `registerTool({ name, title?, description, inputSchema?, annotations?, execute }, { signal?, exposedTo? })` returns a Promise. **There is no `unregisterTool()`.** To unregister, abort the `AbortSignal` you passed at registration.                                                 | High                                    |
+| `execute` callback     | `(inputObject, { signal }) => any \| Promise<any>`. The return value is **JSON-serialized** to a string for the caller.                                                                                                                                                               | High                                    |
+| Annotations            | `readOnlyHint`, `untrustedContentHint`, `consequentialHint`, `debugging` (all default `false`). **These are self-declared by the site, so a site can lie.**                                                                                                                           | High                                    |
+| Consumer API           | `getTools({ fromOrigins? })` returns `RegisteredTool[]` (`name, title, description, inputSchema, window, origin, annotations`). `executeTool(tool, inputObject, { signal? })` returns `Promise<string>`.                                                                              | High (spec + official inspector source) |
+| Events                 | `toolchange` fires when tools are registered or unregistered. `toolactivated` and `toolcancel` carry a `toolName`.                                                                                                                                                                    | High                                    |
+| Declarative API        | Chrome supports form attributes `toolname`, `tooldescription`, `toolautosubmit` and `toolparamdescription`, plus `SubmitEvent.agentInvoked`, `SubmitEvent.respondWith()` and the `:tool-form-active` / `:tool-submit-active` pseudo-classes. **The spec still marks this as a TODO.** | Medium                                  |
+| Permissions and frames | `tools` Permissions-Policy feature, default `self`. Cross-origin iframe tools need `allow="tools"` plus `exposedTo` on the provider side and `fromOrigins` on the consumer side.                                                                                                      | High                                    |
+| Scope                  | **Tools only.** No MCP resources or prompts. No headless use; the design assumes a human in the loop and a visible tab.                                                                                                                                                               | High                                    |
+| Chrome availability    | Early preview in 146 (Canary only). **Origin trial runs Chrome 149–156.** For local development use the flag `chrome://flags/#enable-webmcp-testing`. The official Model Context Tool Inspector needs **≥ 150.0.7861.0** with the flag on. Current Stable (Mac) is **154.0.8037.98**. | High for the versions                   |
+| Argument format quirk  | `executeTool` first took a **JSON string** of arguments and later moved to a **plain object**. The string form is deprecated **from Chrome 155**. The official inspector tries the object form first and falls back to the string form on a `Failed to parse input` error.            | High                                    |
 
 ### 1.2 How an extension finds and calls tools (key finding)
 
@@ -136,14 +136,14 @@ The spec says agent-side discovery is "implementation-defined" and has **no `chr
 
 ### Shared packages: what's worth sharing
 
-| Package | Keep? | Why |
-|---|---|---|
-| `@repo/tsconfig` | ✅ | Shared strict settings. The `react` and `node` presets differ in module resolution. Zero code. |
-| `@repo/ui` | ✅ | `chrome-ext` and `web-demo` share one shadcn design system (monorepo mode, Tailwind 4 `@source`). |
-| `@repo/agent-protocol` | ✅ | The only real cross-app runtime contract: the zod schemas for `/api/chat`, `WebMcpToolDescriptor` normalization, the **untrusted-input limits** (description length, tool count, schema size), and the tool-name codec. The BFF encodes names and the extension decodes them, so they must share one implementation. |
-| Lint/format config packages | ❌ | One root `.oxlintrc.json` (with per-glob `overrides`) and one `.prettierrc.json`. |
-| Shared GraphQL types | ❌ | There's only one consumer. The committed `schema.gql` is the contract. |
-| Shared WebMCP tool definitions | ❌ | **Sharing them would defeat the demo.** The extension must discover tools at runtime. |
+| Package                        | Keep? | Why                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------ | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@repo/tsconfig`               | ✅    | Shared strict settings. The `react` and `node` presets differ in module resolution. Zero code.                                                                                                                                                                                                                       |
+| `@repo/ui`                     | ✅    | `chrome-ext` and `web-demo` share one shadcn design system (monorepo mode, Tailwind 4 `@source`).                                                                                                                                                                                                                    |
+| `@repo/agent-protocol`         | ✅    | The only real cross-app runtime contract: the zod schemas for `/api/chat`, `WebMcpToolDescriptor` normalization, the **untrusted-input limits** (description length, tool count, schema size), and the tool-name codec. The BFF encodes names and the extension decodes them, so they must share one implementation. |
+| Lint/format config packages    | ❌    | One root `.oxlintrc.json` (with per-glob `overrides`) and one `.prettierrc.json`.                                                                                                                                                                                                                                    |
+| Shared GraphQL types           | ❌    | There's only one consumer. The committed `schema.gql` is the contract.                                                                                                                                                                                                                                               |
+| Shared WebMCP tool definitions | ❌    | **Sharing them would defeat the demo.** The extension must discover tools at runtime.                                                                                                                                                                                                                                |
 
 Internal packages are **source-only** ("Just-in-Time" packages): no package builds and no TS project references. Each one is type-checked with `tsc --noEmit`.
 
@@ -155,47 +155,48 @@ Shared versions go into a **pnpm `catalog:`** in `pnpm-workspace.yaml` with `sav
 
 ### Runtime and repo tooling
 
-| Tool | Version | Why |
-|---|---|---|
-| Node.js | **24.21.0 LTS** | Vitest 5 needs ≥22.12 or 24. jsdom 30 needs ≥22.22.2. **Your local Node 22.14.0 must be upgraded.** Node 24 also brings the built-in `node:sqlite` (stability 1.2, release candidate) and `--env-file`. |
-| pnpm | **12.8.1** (`packageManager`) | Through Corepack. Dependency build scripts are blocked by default; approve them with `pnpm approve-builds`. Using `node:sqlite` means **no native SQLite build**. |
-| Turborepo | **2.11.7** | Task ordering (`codegen` before `typecheck`), caching, and the `turbo dev` TUI for four servers. Lighter than Nx. |
-| TypeScript | **6.0.3** | `@nestjs/graphql@14` peers `^5.5 \|\| ^6`, which rules out TS 7.0.2. (Dropping ESLint removed the other constraint.) |
-| **oxlint** | **1.86.0** + **`oxlint-tsgolint` 7.0.2003** (type-aware) | Your choice. It's also Nest 12's new default. Built-in `typescript`, `react` (including rules of hooks and exhaustive deps), `import`, `unicorn` and `vitest` plugins, so there are no plugin packages. Run with `oxlint --type-aware`. Note: type-aware rules run on tsgolint's TS 7 engine, so they can differ in small ways from the TS 6 typecheck. `tsc` stays the source of truth for types. |
-| Prettier | **3.9.9** | Formatter. oxlint doesn't format. |
-| Vitest | **5.0.3** (+ `@vitest/coverage-v8` 5.0.3) | One runner, with root `test.projects`. |
-| jsdom | **30.1.1** | DOM environment for React tests. |
-| Testing Library | `@testing-library/react` **16.3.3**, `user-event` **14.6.7**, `jest-dom` **7.0.1** | Standard. |
+| Tool            | Version                                                                            | Why                                                                                                                                                                                                                                                                                                                                                                                                |
+| --------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node.js         | **24.21.0 LTS**                                                                    | Vitest 5 needs ≥22.12 or 24. jsdom 30 needs ≥22.22.2. **Your local Node 22.14.0 must be upgraded.** Node 24 also brings the built-in `node:sqlite` (stability 1.2, release candidate) and `--env-file`.                                                                                                                                                                                            |
+| pnpm            | **12.8.1** (`packageManager`)                                                      | Through Corepack. Dependency build scripts are blocked by default; approve them with `pnpm approve-builds`. Using `node:sqlite` means **no native SQLite build**.                                                                                                                                                                                                                                  |
+| Turborepo       | **2.11.7**                                                                         | Task ordering (`codegen` before `typecheck`), caching, and the `turbo dev` TUI for four servers. Lighter than Nx.                                                                                                                                                                                                                                                                                  |
+| TypeScript      | **6.0.3**                                                                          | `@nestjs/graphql@14` peers `^5.5 \|\| ^6`, which rules out TS 7.0.2. (Dropping ESLint removed the other constraint.)                                                                                                                                                                                                                                                                               |
+| **oxlint**      | **1.86.0** + **`oxlint-tsgolint` 7.0.2003** (type-aware)                           | Your choice. It's also Nest 12's new default. Built-in `typescript`, `react` (including rules of hooks and exhaustive deps), `import`, `unicorn` and `vitest` plugins, so there are no plugin packages. Run with `oxlint --type-aware`. Note: type-aware rules run on tsgolint's TS 7 engine, so they can differ in small ways from the TS 6 typecheck. `tsc` stays the source of truth for types. |
+| Prettier        | **3.9.9**                                                                          | Formatter. oxlint doesn't format.                                                                                                                                                                                                                                                                                                                                                                  |
+| Vitest          | **5.0.3** (+ `@vitest/coverage-v8` 5.0.3)                                          | One runner, with root `test.projects`.                                                                                                                                                                                                                                                                                                                                                             |
+| jsdom           | **30.1.1**                                                                         | DOM environment for React tests.                                                                                                                                                                                                                                                                                                                                                                   |
+| Testing Library | `@testing-library/react` **16.3.3**, `user-event` **14.6.7**, `jest-dom` **7.0.1** | Standard.                                                                                                                                                                                                                                                                                                                                                                                          |
 
 ### Front end (`web-demo`, `chrome-ext`, `@repo/ui`)
 
-| Tool | Version | Why |
-|---|---|---|
-| React / React DOM | **19.3.0** | Latest. `@ai-sdk/react` peers `^19.2.1` ✅. |
-| Vite | **8.3.2** + `@vitejs/plugin-react` **6.1.1** | WXT 0.21 and Vitest 5 both accept Vite 8. |
-| Tailwind CSS | **4.3.3** + `@tailwindcss/vite` **4.3.3** | CSS-first config. |
-| shadcn CLI | **4.21.1** + `lucide-react` **1.51.0** | Requested. Monorepo mode is supported. |
-| TanStack Router | `@tanstack/react-router` **1.170.41**; `@tanstack/router-plugin` **1.168.42** (web-demo only) | **web-demo:** file-based routes, because routes matter: board tools are **scoped to the board route**. **chrome-ext:** code-based routes with **hash history** (three views). |
-| TanStack Query | **5.104.1** (+ devtools) | **web-demo:** tools and UI share one `queryClient`, so a tool-driven card move re-renders the board right away. **chrome-ext:** tool list per tab, and BFF/Ollama health. |
-| TanStack Form / Store / Start | ❌ | YAGNI. |
-| GraphQL client | **None.** TanStack Query + `@graphql-codegen/cli` **7.4.3** + `client-preset` **6.2.0** (`documentMode: 'string'`) + a typed `execute()` over `fetch` | Codegen's documented TanStack Query pattern: typed documents with no runtime client cache that would duplicate Query. |
-| Drag and drop | **`@atlaskit/pragmatic-drag-and-drop` 4.0.0** + `-hitbox` 3.0.0 (+ `-react-drop-indicator` 4.2.4) | It's what Trello itself uses, it's actively maintained (Sept 2026) and framework-agnostic, and its core is small. Alternatives: `@dnd-kit/core` 6.3.1 is established but unpublished since Dec 2024; `@dnd-kit/react` 0.5.0 is pre-1.0. A keyboard-accessible **"Move to…" menu** does the same thing as the `move_card` tool. |
-| Input validation in tools | `zod` **4.6.5** | **Any agent** can call web-demo's tools, so the page validates its own inputs; it doesn't trust the agent's validation. |
-| WebMCP types | `webmcp-types` **0.1.10** | Official types. |
+| Tool                          | Version                                                                                                                                               | Why                                                                                                                                                                                                                                                                                                                            |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| React / React DOM             | **19.3.0**                                                                                                                                            | Latest. `@ai-sdk/react` peers `^19.2.1` ✅.                                                                                                                                                                                                                                                                                    |
+| Vite                          | **8.3.2** + `@vitejs/plugin-react` **6.1.1**                                                                                                          | WXT 0.21 and Vitest 5 both accept Vite 8.                                                                                                                                                                                                                                                                                      |
+| Tailwind CSS                  | **4.3.3** + `@tailwindcss/vite` **4.3.3**                                                                                                             | CSS-first config.                                                                                                                                                                                                                                                                                                              |
+| shadcn CLI                    | **4.21.1** + `lucide-react` **1.51.0**                                                                                                                | Requested. Monorepo mode is supported.                                                                                                                                                                                                                                                                                         |
+| TanStack Router               | `@tanstack/react-router` **1.170.41**; `@tanstack/router-plugin` **1.168.42** (web-demo only)                                                         | **web-demo:** file-based routes, because routes matter: board tools are **scoped to the board route**. **chrome-ext:** code-based routes with **hash history** (three views).                                                                                                                                                  |
+| TanStack Query                | **5.104.1** (+ devtools)                                                                                                                              | **web-demo:** tools and UI share one `queryClient`, so a tool-driven card move re-renders the board right away. **chrome-ext:** tool list per tab, and BFF/Ollama health.                                                                                                                                                      |
+| TanStack Form / Store / Start | ❌                                                                                                                                                    | YAGNI.                                                                                                                                                                                                                                                                                                                         |
+| GraphQL client                | **None.** TanStack Query + `@graphql-codegen/cli` **7.4.3** + `client-preset` **6.2.0** (`documentMode: 'string'`) + a typed `execute()` over `fetch` | Codegen's documented TanStack Query pattern: typed documents with no runtime client cache that would duplicate Query.                                                                                                                                                                                                          |
+| Drag and drop                 | **`@atlaskit/pragmatic-drag-and-drop` 4.0.0** + `-hitbox` 3.0.0 (+ `-react-drop-indicator` 4.2.4)                                                     | It's what Trello itself uses, it's actively maintained (Sept 2026) and framework-agnostic, and its core is small. Alternatives: `@dnd-kit/core` 6.3.1 is established but unpublished since Dec 2024; `@dnd-kit/react` 0.5.0 is pre-1.0. A keyboard-accessible **"Move to…" menu** does the same thing as the `move_card` tool. |
+| Input validation in tools     | `zod` **4.6.5**                                                                                                                                       | **Any agent** can call web-demo's tools, so the page validates its own inputs; it doesn't trust the agent's validation.                                                                                                                                                                                                        |
+| WebMCP types                  | `webmcp-types` **0.1.10**                                                                                                                             | Official types.                                                                                                                                                                                                                                                                                                                |
 
 ### Extension build: **WXT 0.21.4** (+ `@wxt-dev/module-react` 1.2.2)
 
-| Option | Pros | Cons |
-|---|---|---|
-| **WXT** ✅ | File-based entrypoints generate the manifest. HMR for the side panel. Typed `browser` API, a `storage` helper, Vite 8 support. | Opinionated, and pre-1.0. |
-| CRXJS 3.0.0 | A thin Vite plugin around your own manifest. | More hand-wiring; historically unsteady maintenance. |
-| Plain Vite | Full control. | You hand-roll multi-entry builds, the manifest and reload. |
+| Option      | Pros                                                                                                                           | Cons                                                       |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| **WXT** ✅  | File-based entrypoints generate the manifest. HMR for the side panel. Typed `browser` API, a `storage` helper, Vite 8 support. | Opinionated, and pre-1.0.                                  |
+| CRXJS 3.0.0 | A thin Vite plugin around your own manifest.                                                                                   | More hand-wiring; historically unsteady maintenance.       |
+| Plain Vite  | Full control.                                                                                                                  | You hand-roll multi-entry builds, the manifest and reload. |
 
 ### BFF: **Hono 4.13.12** (+ `@hono/node-server` 2.1.3) + **AI SDK 7** (`ai` 7.0.127, `@ai-sdk/react` 4.0.130) + **`ai-sdk-ollama` 4.4.0** + zod 4.6.5
 
 **HTTP framework:** Hono rather than Fastify 5.12.5. It's built on Web-standard `Request`/`Response`, so the AI SDK's stream `Response` is returned directly, and `app.request()` makes tests trivial.
 
 **Agent approach:** **AI SDK 7.** A tool without `execute` streams to the client: `onToolCall` → `addToolOutput` → `sendAutomaticallyWhen`. That is exactly the WebMCP split, where the server reasons and the browser runs the tools. Compared with the alternatives:
+
 - **Mastra 1.74.0** is built on AI SDK and heavier. It stays the upgrade path if we want memory or workflows.
 - **OpenAI Agents SDK TS 0.18.0** makes browser round trips awkward (interruptions plus `RunState`).
 - **The Claude Agent SDK is dropped:** it's Anthropic-only, which conflicts with Decision 1.
@@ -206,24 +207,24 @@ Shared versions go into a **pnpm `catalog:`** in `pnpm-workspace.yaml` with `sav
 
 **AI SDK provider for Ollama**
 
-| Option | Version | Verdict |
-|---|---|---|
-| **`ai-sdk-ollama`** ✅ | 4.4.0 (peers `ai ^7.0.103`; built on the official `ollama` 0.6.4 client; updated 2026-09-30) | Talks to Ollama's **native `/api/chat`**, which is the endpoint Ollama's cloud docs use, with `baseURL: 'https://ollama.com'` plus the `Authorization` header. It exposes `think` (gpt-oss takes `low`/`medium`/`high`). The AI SDK docs list it as a community provider. |
-| `ollama-ai-provider-v2` | 4.0.1 | Also a community provider; plain HTTP. A fine fallback. |
-| `@ai-sdk/openai-compatible` | 3.0.62 | Maintained by Vercel. Ollama Cloud also supports OpenAI-compatible clients ("a subset of the original API"). The emergency fallback. |
+| Option                      | Version                                                                                      | Verdict                                                                                                                                                                                                                                                                   |
+| --------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`ai-sdk-ollama`** ✅      | 4.4.0 (peers `ai ^7.0.103`; built on the official `ollama` 0.6.4 client; updated 2026-09-30) | Talks to Ollama's **native `/api/chat`**, which is the endpoint Ollama's cloud docs use, with `baseURL: 'https://ollama.com'` plus the `Authorization` header. It exposes `think` (gpt-oss takes `low`/`medium`/`high`). The AI SDK docs list it as a community provider. |
+| `ollama-ai-provider-v2`     | 4.0.1                                                                                        | Also a community provider; plain HTTP. A fine fallback.                                                                                                                                                                                                                   |
+| `@ai-sdk/openai-compatible` | 3.0.62                                                                                       | Maintained by Vercel. Ollama Cloud also supports OpenAI-compatible clients ("a subset of the original API"). The emergency fallback.                                                                                                                                      |
 
 The provider is isolated in `agent/model.ts`, so switching is a single-file change.
 
 **Free-tier models.** Your ollama.com/settings → Usage page (Free plan, read 2026-10-03) says free usage credits can be used **only** with these 6 cloud models. All of them are listed as **tool-capable** on ollama.com/search?c=cloud. The prices are the per-million-token rates your free credits are spent at.
 
-| Model (API name) | Capabilities | $ in / out per 1M tokens | Role in this repo |
-|---|---|---|---|
-| **`gpt-oss:120b`** | tools, thinking | 0.15 / 0.60 | **Default.** OpenAI's open-weight model built for agentic tool use. Strong reasoning at a moderate price. |
-| `gemma4:31b` | tools, thinking, vision | 0.14 / 0.40 | Strong alternative, and the model used in Ollama's own cloud quickstart. |
-| `nemotron-3-super` | tools, thinking (120B MoE, 12B active) | 0.015 / 0.60 | The cheapest input, so a good fit for long tool lists and history. A good candidate. |
-| `gpt-oss:20b` | tools, thinking | 0.07 / 0.30 | **Dev loop.** Cheap plumbing and UI iteration. |
-| `nemotron-3-nano:30b` | tools, thinking | 0.06 / 0.24 | The cheapest overall. Dev loop or worst-case baseline. |
-| `nemotron-3-ultra` | tools, thinking | 0.10 / 3.00 | The most capable Nemotron; expensive output. Use for hard multi-step runs only. |
+| Model (API name)      | Capabilities                           | $ in / out per 1M tokens | Role in this repo                                                                                         |
+| --------------------- | -------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------- |
+| **`gpt-oss:120b`**    | tools, thinking                        | 0.15 / 0.60              | **Default.** OpenAI's open-weight model built for agentic tool use. Strong reasoning at a moderate price. |
+| `gemma4:31b`          | tools, thinking, vision                | 0.14 / 0.40              | Strong alternative, and the model used in Ollama's own cloud quickstart.                                  |
+| `nemotron-3-super`    | tools, thinking (120B MoE, 12B active) | 0.015 / 0.60             | The cheapest input, so a good fit for long tool lists and history. A good candidate.                      |
+| `gpt-oss:20b`         | tools, thinking                        | 0.07 / 0.30              | **Dev loop.** Cheap plumbing and UI iteration.                                                            |
+| `nemotron-3-nano:30b` | tools, thinking                        | 0.06 / 0.24              | The cheapest overall. Dev loop or worst-case baseline.                                                    |
+| `nemotron-3-ultra`    | tools, thinking                        | 0.10 / 3.00              | The most capable Nemotron; expensive output. Use for hard multi-step runs only.                           |
 
 - **The free allowance is small, and its dollar amount isn't shown.** It resets monthly; at the time of reading the page said "0% used, resets in 2 weeks".
 - **Free plan = 1 concurrent request.** Extra requests are queued, and rejected if the queue is full.
@@ -233,6 +234,7 @@ The provider is isolated in `agent/model.ts`, so switching is a single-file chan
 Phase 4 includes a **model bake-off**: run the demo script against `gpt-oss:120b`, `gemma4:31b` and `nemotron-3-super`, one at a time (concurrency 1). Record tool-call accuracy, latency and **the % of free usage consumed** (from the settings page) in `docs/ollama-models.md`. The default is final only after that.
 
 Realities we design for:
+
 - Open-weight models make more malformed or hallucinated tool calls than frontier models. AI SDK validates tool input against the JSON Schema; we add `experimental_repairToolCall` (one retry), and the page validates with zod.
 - Prefer **flat, simple schemas** (names instead of ids, `enum`s, few optional fields) in web-demo's tools. This also keeps token cost down.
 - **Tokens cost credits**, so keep requests small: compact tool results, the `MAX_TOOL_RESULT_CHARS` cap, concise tool descriptions, and a "start new chat" hint for long chats.
@@ -240,15 +242,16 @@ Realities we design for:
 
 ### Server (`web-server-demo`)
 
-| Tool | Version | Why |
-|---|---|---|
-| NestJS | **12.1.2** (`core`, `common`, `platform-express`, `testing`), CLI **12.0.8** | Ships as ESM; the ESM template defaults to Vitest. |
-| GraphQL | `@nestjs/graphql` + `@nestjs/apollo` **14.0.3**, `@apollo/server` **5.5.1**, `@as-integrations/express5` **1.1.2**, **`graphql` 16.14.2** | ⚠️ `graphql` stays on 16.x because Apollo Server 5 peers `^16.11`. |
-| Approach | **Code-first**, with explicit `@Field(() => T)` | TS → `schema.gql` → web-demo codegen is one pipeline. Schema-first would mean keeping SDL and generated typings in sync by hand. |
-| **Storage** | **`node:sqlite` (built into Node 24)** with plain SQL + prepared statements | **Zero dependencies and no native build.** Tests use `:memory:` (fast, isolated). Forward-only `.sql` migrations are tracked through `PRAGMA user_version`. Trade-offs: no ORM or typed query builder (the repositories are small, so that's fine), and the API is "release candidate", not stable. Alternative: `better-sqlite3` 13.0.3 + `drizzle-orm` 0.45.3 if we want an ORM later. |
-| Validation | GraphQL types/enums + service-level checks | Minimal dependencies. |
+| Tool        | Version                                                                                                                                   | Why                                                                                                                                                                                                                                                                                                                                                                                      |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NestJS      | **12.1.2** (`core`, `common`, `platform-express`, `testing`), CLI **12.0.8**                                                              | Ships as ESM; the ESM template defaults to Vitest.                                                                                                                                                                                                                                                                                                                                       |
+| GraphQL     | `@nestjs/graphql` + `@nestjs/apollo` **14.0.3**, `@apollo/server` **5.5.1**, `@as-integrations/express5` **1.1.2**, **`graphql` 16.14.2** | ⚠️ `graphql` stays on 16.x because Apollo Server 5 peers `^16.11`.                                                                                                                                                                                                                                                                                                                       |
+| Approach    | **Code-first**, with explicit `@Field(() => T)`                                                                                           | TS → `schema.gql` → web-demo codegen is one pipeline. Schema-first would mean keeping SDL and generated typings in sync by hand.                                                                                                                                                                                                                                                         |
+| **Storage** | **`node:sqlite` (built into Node 24)** with plain SQL + prepared statements                                                               | **Zero dependencies and no native build.** Tests use `:memory:` (fast, isolated). Forward-only `.sql` migrations are tracked through `PRAGMA user_version`. Trade-offs: no ORM or typed query builder (the repositories are small, so that's fine), and the API is "release candidate", not stable. Alternative: `better-sqlite3` 13.0.3 + `drizzle-orm` 0.45.3 if we want an ORM later. |
+| Validation  | GraphQL types/enums + service-level checks                                                                                                | Minimal dependencies.                                                                                                                                                                                                                                                                                                                                                                    |
 
 **Vitest on NestJS:** start from Nest 12's ESM template: Vitest + `vite-tsconfig-paths`, with `experimentalDecorators`/`emitDecoratorMetadata` in tsconfig and no `unplugin-swc`, relying on Vite 8's Oxc transformer. **The first server test is a DI smoke test.** If decorator metadata is missing, add **`unplugin-swc` 2.0.0 + `@swc/core` 1.16.13**.
+
 - **Trade-offs vs Jest:** there are fewer existing Nest examples for Vitest, and older docs use `jest.*`. In return we get one runner across the repo, ESM-native tests and faster watch mode.
 - **SQLite specific:** check that Vitest resolves the `node:sqlite` built-in. This is covered by the first repository test.
 
@@ -259,6 +262,7 @@ Realities we design for:
 Conventions: Conventional Commits; one commit per task; one branch per phase merged into local `main` when the DoD passes (no remote). Every phase ends green on `pnpm check` (oxlint + typecheck + tests).
 
 ### Phase 0: Repo and tooling
+
 1. `git init` (`main`). Add `.gitignore` (node_modules, dist, `.output`, `.wxt`, `.turbo`, coverage, `*.tsbuildinfo`, `.env*` except `!.env.example`, `apps/web-server-demo/data/`, `*.sqlite*`, `.DS_Store`, logs) and `.editorconfig`.
 2. `.nvmrc` (24). Root `package.json` with `type: module`, `packageManager: pnpm@12.8.1`, `engines.node: ">=24.15"`.
 3. `pnpm-workspace.yaml` with the catalog, `saveExact` and the build-script allowlist.
@@ -270,6 +274,7 @@ Conventions: Conventional Commits; one commit per task; one branch per phase mer
 **DoD:** On Node 24, `pnpm install` works cleanly, and `pnpm lint`, `format:check`, `typecheck` and `test` (`--passWithNoTests`) all exit 0. Committed.
 
 ### Phase 1: Shared packages
+
 1. `@repo/tsconfig`: `base`, `react` (bundler resolution, JSX, DOM) and `node` (nodenext) presets.
 2. `@repo/ui`: `shadcn init --monorepo`; add `button, card, input, textarea, badge, scroll-area, separator, tooltip, alert-dialog, dialog, dropdown-menu, select, skeleton, switch`; `globals.css` with `@source` globs; `cn()`; a smoke test.
 3. `@repo/agent-protocol`, written test-first:
@@ -284,6 +289,7 @@ Conventions: Conventional Commits; one commit per task; one branch per phase mer
 ### Phase 2: Server, then web app, then WebMCP tools
 
 **2a. `web-server-demo` (NestJS + GraphQL + SQLite)**
+
 1. Hand-scaffold from the Nest 12 ESM template layout. Apollo driver, `autoSchemaFile: 'schema.gql'`, `sortSchema`, GraphiQL.
 2. **DI smoke test first.**
 3. `DatabaseModule`: provides a `DatabaseSync` (from `node:sqlite`) under a `DATABASE` token, with `DATABASE_PATH` defaulting to `data/dev.sqlite` and `:memory:` in tests. It runs `PRAGMA foreign_keys = ON` and `journal_mode = WAL`, runs migrations (`migrations/*.sql` against `PRAGMA user_version`), and seeds when the database is empty. It closes the database on module destroy.
@@ -306,12 +312,14 @@ Conventions: Conventional Commits; one commit per task; one branch per phase mer
 8. `generate-schema.ts` (the `schema` script, using `GraphQLSchemaFactory`, no server). `db:reset` script.
 
 **DoD:**
+
 - Repository tests run against a real `:memory:` database: CRUD, move re-indexing (same list and across lists, top/bottom/index), the label set replacement, archive/restore, and FK cascade.
 - Service tests cover validation, not-found and name resolution.
 - The e2e test (supertest `POST /graphql`) covers create card → move → archive → restore.
 - The `schema` script reproduces `schema.gql`, and GraphiQL is reachable.
 
 **2b. `web-demo` (Trello-like UI, no WebMCP yet)**
+
 1. Vite + React + TanStack Router (file-based) + Query + Tailwind + `@repo/ui`; proxy `/graphql` → :4000.
 2. Codegen from `../web-server-demo/schema.gql`; generated `src/gql/` is committed; typed `execute()`.
 3. `features/boards/queries.ts`: `useBoards`, `useBoard(id)`, `useCreateCard`, `useUpdateCard`, `useMoveCard` (an **optimistic update**, so drag-and-drop and tool moves feel instant), `useArchiveCard`, `useRestoreCard`. **These are the real app actions the tools will call.**
@@ -321,18 +329,19 @@ Conventions: Conventional Commits; one commit per task; one branch per phase mer
 **DoD:** You can do the full manual workflow: create, edit, drag, move through the menu, archive and undo. Component tests (mocking `execute`) cover rendering a board's lists in order, the composer, the move menu calling `moveCard` with the right variables, and the optimistic move rolling back on error.
 
 **2c. WebMCP tools in `web-demo`**
+
 1. `useWebMcpTool(def)`: feature-detects `document.modelContext`; registers in `useEffect` with an `AbortController`; **aborts on unmount** (no `unregisterTool`); keeps the latest `execute` in a ref; checks input with the tool's zod schema before acting (and returns `{ error }` on failure).
 2. **Global tools** (`<GlobalTools/>` in `__root`) and **board-scoped tools** (`<BoardTools boardId/>` in `/boards/$boardId`). Opening or leaving a board therefore registers or unregisters tools, and `toolchange` fires. The demo is built around that. Tools return compact JSON (ids, names, counts), never whole objects.
 
-| Tool | Scope | Annotations | Input schema (JSON Schema, `type: object`) | Real app action |
-|---|---|---|---|---|
-| `list_boards` | global | `readOnlyHint` | `{}` | `boards` query |
-| `open_board` | global | `readOnlyHint` | `board: string` **req** (name or id) | `router.navigate('/boards/$boardId')` |
-| `get_board` | board | `readOnlyHint` | `query?: string`, `labels?: string[]`, `list?: string`, `overdue?: boolean` | `board` / `searchCards` |
-| `create_card` | board | – | `list: string` **req** (name or id), `title: string (1–120)` **req**, `description?: string`, `dueDate?: string (YYYY-MM-DD)`, `labels?: string[]` (≤5, existing label names) | `createCard` |
-| `update_card` | board | – | `cardId: string` **req**, `title?`, `description?`, `dueDate?: string \| null`, `labels?: string[]` (replaces the set) | `updateCard` |
-| `move_card` | board | – | `cardId: string` **req**, `toList: string` **req** (name or id), `position?: "top" \| "bottom"` (default bottom) | `moveCard` (optimistic) |
-| `archive_card` | board | `consequentialHint` | `cardId: string` **req** | `archiveCard` (+ an Undo toast) |
+| Tool           | Scope  | Annotations         | Input schema (JSON Schema, `type: object`)                                                                                                                                    | Real app action                       |
+| -------------- | ------ | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `list_boards`  | global | `readOnlyHint`      | `{}`                                                                                                                                                                          | `boards` query                        |
+| `open_board`   | global | `readOnlyHint`      | `board: string` **req** (name or id)                                                                                                                                          | `router.navigate('/boards/$boardId')` |
+| `get_board`    | board  | `readOnlyHint`      | `query?: string`, `labels?: string[]`, `list?: string`, `overdue?: boolean`                                                                                                   | `board` / `searchCards`               |
+| `create_card`  | board  | –                   | `list: string` **req** (name or id), `title: string (1–120)` **req**, `description?: string`, `dueDate?: string (YYYY-MM-DD)`, `labels?: string[]` (≤5, existing label names) | `createCard`                          |
+| `update_card`  | board  | –                   | `cardId: string` **req**, `title?`, `description?`, `dueDate?: string \| null`, `labels?: string[]` (replaces the set)                                                        | `updateCard`                          |
+| `move_card`    | board  | –                   | `cardId: string` **req**, `toList: string` **req** (name or id), `position?: "top" \| "bottom"` (default bottom)                                                              | `moveCard` (optimistic)               |
+| `archive_card` | board  | `consequentialHint` | `cardId: string` **req**                                                                                                                                                      | `archiveCard` (+ an Undo toast)       |
 
 Accepting names alongside ids for lists and boards is deliberate: it cuts the number of tool hops (and tokens, which cost free credits) an open-weight model needs.
 
@@ -341,6 +350,7 @@ Accepting names alongside ids for lists and boards is deliberate: it cuts the nu
 **DoD:** In flagged Chrome, Google's **Model Context Tool Inspector** shows 2 tools on `/`, which becomes **7** after opening a board (toolchange). `move_card` run from the inspector moves a card live.
 
 ### Phase 3: Extension skeleton for any WebMCP site (manual inspector)
+
 1. WXT + React module, `srcDir: 'src'`, Tailwind, `@repo/ui`.
 2. Manifest:
    - `permissions: ['sidePanel', 'storage', 'scripting', 'webNavigation']`
@@ -357,7 +367,7 @@ Accepting names alongside ids for lists and boards is deliberate: it cuts the nu
 5. `lib/messages.ts`: a typed message protocol. `lib/webmcp-client.ts`: `listTools(tabId)`, `executeTool(tabId, name, args)`, and `useActiveTabTools()` (keyed by `tabId` and URL, refreshed on `toolchange`, tab activation and navigation).
 6. **`lib/origin-trust.ts`** (a security model needed for "any site"):
    - Each origin is **untrusted** by default. `http://localhost:5173` is pre-trusted.
-   - **Untrusted origin:** *every* tool call needs approval, because `readOnlyHint` is self-declared and can't be relied on.
+   - **Untrusted origin:** _every_ tool call needs approval, because `readOnlyHint` is self-declared and can't be relied on.
    - **Trusted origin:** read-only tools auto-run (if the setting is on); other tools ask; `consequentialHint` tools always ask.
    - Trust is changed per origin from the panel header ("Trust this site"), stored in `chrome.storage.local`.
 7. Side panel:
@@ -368,17 +378,19 @@ Accepting names alongside ids for lists and boards is deliberate: it cuts the nu
 8. Unsupported pages (`chrome://`, Chrome Web Store, PDF viewer): a clear "can't run on this page" state.
 
 **DoD:**
+
 - Tools view: shows web-demo's tools, follows `toolchange` live as you open and leave boards, and runs `move_card` (the board updates).
 - On Google's WebMCP demo sites, it shows and runs their tools with the origin labeled. On a non-WebMCP site it shows "no tools"; with the flag off it shows the diagnostic.
 - Unit tests: `webmcp-host` (list, limits, fallback, abort, timeout, missing API, debounce) and the `origin-trust` decision matrix.
 
 ### Phase 4: BFF + Ollama Cloud + agent integration
-1. **Spike (can run any time after Phase 0, and is recommended early):** a 30-line script that calls `streamText` through `ai-sdk-ollama` against `https://ollama.com` with `gpt-oss:20b` (cheap) and one client-side tool, and checks that `tool-input-available` shows up in the UI stream. If it fails, fall back to `ollama-ai-provider-v2`, then to `@ai-sdk/openai-compatible` against Ollama's OpenAI-compatible endpoint. *This spends a few cents of free credits.*
+
+1. **Spike (can run any time after Phase 0, and is recommended early):** a 30-line script that calls `streamText` through `ai-sdk-ollama` against `https://ollama.com` with `gpt-oss:20b` (cheap) and one client-side tool, and checks that `tool-input-available` shows up in the UI stream. If it fails, fall back to `ollama-ai-provider-v2`, then to `@ai-sdk/openai-compatible` against Ollama's OpenAI-compatible endpoint. _This spends a few cents of free credits._
 2. `chrome-ext-bff`:
    - `env.ts`: zod-validated variables `OLLAMA_API_KEY` (**required**), `OLLAMA_BASE_URL` (default `https://ollama.com`), `AI_MODEL` (default `gpt-oss:120b`, checked against `FREE_TIER_MODELS`), `AI_ALLOW_ANY_MODEL`, `AI_THINK`, `PORT`, `ALLOWED_ORIGINS`, `MAX_TOOL_RESULT_CHARS`. Loaded with Node `--env-file-if-exists`; fails fast with a readable message. **The key is never logged** (redacted in the env dump and in error output).
    - `app.ts`: a `createApp(deps)` factory, Origin allowlist (`chrome-extension://<fixed-id>`), CORS for that origin only, body limit, zod validation. Binds to `127.0.0.1`.
-   - `agent/model.ts`: `createOllama({ baseURL, headers: { Authorization: \`Bearer ${key}\` } })` → `ollama(AI_MODEL, { think })`. The provider is swappable here.
-   - **Upstream error mapping:** Ollama `401` → `502 { code: "upstream_auth" }` ("check OLLAMA_API_KEY"); a usage-exhausted or plan-restricted model → `402 { code: "usage_exhausted" }` (with a link to ollama.com/settings); `429` or a full queue → `503 { code: "upstream_busy", retryAfter }`. *Verify the exact status codes Ollama returns during the spike.*
+   - `agent/model.ts`: `createOllama({ baseURL, headers: { Authorization: \`Bearer ${key}\` } })`→`ollama(AI_MODEL, { think })`. The provider is swappable here.
+   - **Upstream error mapping:** Ollama `401` → `502 { code: "upstream_auth" }` ("check OLLAMA_API_KEY"); a usage-exhausted or plan-restricted model → `402 { code: "usage_exhausted" }` (with a link to ollama.com/settings); `429` or a full queue → `503 { code: "upstream_busy", retryAfter }`. _Verify the exact status codes Ollama returns during the spike._
 3. `GET /api/health`: BFF status, plus an **Ollama Cloud check**: `GET {base}/api/tags` with the key. It reports whether the API is reachable, whether the key is accepted, and whether the configured model is listed. It is cached for 60 s and costs no tokens.
 4. `POST /api/chat`:
    - Validate the body and re-apply `@repo/agent-protocol` limits on the server.
@@ -396,11 +408,13 @@ Accepting names alongside ids for lists and boards is deliberate: it cuts the nu
 6. **Model bake-off:** run the demo script against `gpt-oss:120b`, `gemma4:31b` and `nemotron-3-super`, sequentially. Record tool-call accuracy, latency and tokens (and the % of free usage consumed) in `docs/ollama-models.md`, then set the default.
 
 **DoD:**
+
 - The demo script runs end to end on the default free-tier cloud model.
 - BFF tests (AI SDK mock model, no network): the descriptor → tool mapping, server-side limits, a client tool call in the stream, 400/403/413 responses, the free-tier model allowlist, upstream error mapping (401, usage exhausted, 429), health with Ollama's HTTP stubbed, and **the API key never appearing in logs or responses**.
 - Extension tests: the approval matrix × trusted/untrusted origins, the round-trip cap, the origin-change refusal, and tools being re-listed before each send.
 
 ### Phase 5: Polish, docs and experiments
+
 1. READMEs (root + one per app), `docs/architecture.md` (diagrams, API contract, **security model**), `docs/demo-walkthrough.md`.
 2. Hardening: empty and error states, reconnect hints, and a diagnostics checklist.
 3. Experiments (each optional, on its own branch):
@@ -441,38 +455,41 @@ flowchart LR
 
 Vitest 5 everywhere: jsdom for React and the side panel; `node` for the BFF and Nest. Run with `pnpm test`, `pnpm test --project <app>`, or `pnpm --filter <app> test`.
 
-| Area | Test | Don't test |
-|---|---|---|
-| `@repo/agent-protocol` | Schemas, codec, limits (thorough, because it's pure and guards security) | – |
-| `web-server-demo` | DI smoke test; repositories against a **real `:memory:` SQLite** (no SQL mocks); services; one e2e GraphQL flow | Nest/Apollo internals; per-resolver tests that duplicate the e2e |
-| `web-demo` | `useWebMcpTool` lifecycle, including board-to-board navigation; tool input → GraphQL mapping; zod rejection; board rendering, move menu, optimistic rollback | shadcn primitives; drag-and-drop pointer physics (the menu covers the same action); styling |
-| `chrome-ext` | `webmcp-host`; the `origin-trust` matrix; the approval gate; round-trip cap; origin-change refusal; tools re-listed per send | WXT/Chrome wiring (manual DoD checklist); real `chrome.*` (fakes at module boundaries) |
-| `chrome-ext-bff` | `app.request()` with AI SDK's **mock model**; Ollama Cloud health and error mapping with stubbed `fetch`; model allowlist; key redaction | **Any real Ollama Cloud call in automated tests**, because it would spend free credits and need the key. Use a manual `pnpm --filter chrome-ext-bff smoke` script and the bake-off instead. |
-| End to end | **Manual demo checklist** (Phase 4 DoD) | Automated browser e2e (a Phase 5 experiment) |
+| Area                   | Test                                                                                                                                                         | Don't test                                                                                                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@repo/agent-protocol` | Schemas, codec, limits (thorough, because it's pure and guards security)                                                                                     | –                                                                                                                                                                                           |
+| `web-server-demo`      | DI smoke test; repositories against a **real `:memory:` SQLite** (no SQL mocks); services; one e2e GraphQL flow                                              | Nest/Apollo internals; per-resolver tests that duplicate the e2e                                                                                                                            |
+| `web-demo`             | `useWebMcpTool` lifecycle, including board-to-board navigation; tool input → GraphQL mapping; zod rejection; board rendering, move menu, optimistic rollback | shadcn primitives; drag-and-drop pointer physics (the menu covers the same action); styling                                                                                                 |
+| `chrome-ext`           | `webmcp-host`; the `origin-trust` matrix; the approval gate; round-trip cap; origin-change refusal; tools re-listed per send                                 | WXT/Chrome wiring (manual DoD checklist); real `chrome.*` (fakes at module boundaries)                                                                                                      |
+| `chrome-ext-bff`       | `app.request()` with AI SDK's **mock model**; Ollama Cloud health and error mapping with stubbed `fetch`; model allowlist; key redaction                     | **Any real Ollama Cloud call in automated tests**, because it would spend free credits and need the key. Use a manual `pnpm --filter chrome-ext-bff smoke` script and the bake-off instead. |
+| End to end             | **Manual demo checklist** (Phase 4 DoD)                                                                                                                      | Automated browser e2e (a Phase 5 experiment)                                                                                                                                                |
 
 Each task follows TDD: write the failing test, implement minimally, get it green, commit. Coverage is informational only.
 
 ### Edge cases to cover (each has a test in its owning phase)
-1. **A hostile or sloppy site**, with huge or injected descriptions, 500 tools, giant schemas, or false `readOnlyHint` claims. Limits are enforced on both the client and the BFF; untrusted origins always ask for approval. *(Phases 1, 3, 4)*
-2. **The tool set changes mid-run** (`open_board`, navigation, SPA route change). Tools are re-listed before each send; a vanished tool returns a structured "no longer available" error instead of hanging; a different origin is refused. *(Phases 2c, 3, 4)*
-3. **`executeTool` argument format differs across Chrome 154 and 155+.** The fallback is tested. *(Phase 3)*
-4. **The model emits a malformed or hallucinated tool call** (a wrong list name, a bad date, extra fields). Schema validation, one repair attempt, page-side zod, and a readable error go back to the model. *(Phases 2c, 4)*
-5. **Ollama Cloud rejects the request**: missing or invalid key, free usage exhausted, a non-free model configured, the 1-request concurrency queue full, or no network. Each maps to a distinct, actionable error in the panel. The env allowlist blocks non-free models at startup. *(Phase 4)*
+
+1. **A hostile or sloppy site**, with huge or injected descriptions, 500 tools, giant schemas, or false `readOnlyHint` claims. Limits are enforced on both the client and the BFF; untrusted origins always ask for approval. _(Phases 1, 3, 4)_
+2. **The tool set changes mid-run** (`open_board`, navigation, SPA route change). Tools are re-listed before each send; a vanished tool returns a structured "no longer available" error instead of hanging; a different origin is refused. _(Phases 2c, 3, 4)_
+3. **`executeTool` argument format differs across Chrome 154 and 155+.** The fallback is tested. _(Phase 3)_
+4. **The model emits a malformed or hallucinated tool call** (a wrong list name, a bad date, extra fields). Schema validation, one repair attempt, page-side zod, and a readable error go back to the model. _(Phases 2c, 4)_
+5. **Ollama Cloud rejects the request**: missing or invalid key, free usage exhausted, a non-free model configured, the 1-request concurrency queue full, or no network. Each maps to a distinct, actionable error in the panel. The env allowlist blocks non-free models at startup. _(Phase 4)_
 
 ---
 
 ## 7. Dev workflow
 
 ### Ports
-| Service | URL |
-|---|---|
-| `web-server-demo` | `http://localhost:4000/graphql` (GraphiQL) |
-| `web-demo` | `http://localhost:5173` (proxies `/graphql`) |
-| `chrome-ext-bff` | `http://127.0.0.1:8787` (`/api/health`, `/api/chat`) |
-| `chrome-ext` WXT dev/HMR | `http://localhost:3000` |
-| Ollama Cloud (external) | `https://ollama.com/api` (called only by the BFF) |
+
+| Service                  | URL                                                  |
+| ------------------------ | ---------------------------------------------------- |
+| `web-server-demo`        | `http://localhost:4000/graphql` (GraphiQL)           |
+| `web-demo`               | `http://localhost:5173` (proxies `/graphql`)         |
+| `chrome-ext-bff`         | `http://127.0.0.1:8787` (`/api/health`, `/api/chat`) |
+| `chrome-ext` WXT dev/HMR | `http://localhost:3000`                              |
+| Ollama Cloud (external)  | `https://ollama.com/api` (called only by the BFF)    |
 
 ### Environment variables
+
 - `apps/chrome-ext-bff/.env` (gitignored; `.env.example` committed):
   ```
   OLLAMA_API_KEY=                     # required; ollama.com → Settings → Keys
@@ -489,6 +506,7 @@ Each task follows TDD: write the failing test, implement minimally, get it green
 - **Secret safety:** `OLLAMA_API_KEY` lives **only** in `apps/chrome-ext-bff/.env`, which is gitignored. It's never sent to the extension or page, never logged (redacted), and never in source control. The BFF binds to loopback and checks the Origin, so other local pages can't spend your credits through it. If the key leaks, revoke it at ollama.com → Settings → Keys.
 
 ### Root scripts
+
 ```
 pnpm dev            # turbo: server + web-demo + bff + extension (TUI)
 pnpm dev:web        # server + web-demo only
@@ -502,6 +520,7 @@ pnpm --filter chrome-ext-bff smoke   # one real Ollama Cloud round trip (spends 
 ```
 
 ### First-time setup
+
 1. `nvm install 24 && corepack enable`
 2. Create an API key at ollama.com → Settings → Keys, then `cp apps/chrome-ext-bff/.env.example apps/chrome-ext-bff/.env` and paste the key. (Nothing to install or download.)
 3. In Chrome 154+, enable `chrome://flags/#enable-webmcp-testing` and relaunch.
@@ -555,15 +574,16 @@ sequenceDiagram
 
 ### API contract (`chrome-ext` ↔ `chrome-ext-bff`)
 
-| Endpoint | Request | Response |
-|---|---|---|
-| `GET /api/health` | – | `200 { status, version, model, freeTier: boolean, ollama: { reachable, authOk, modelListed } }` (never includes the key) |
-| `POST /api/chat` | `{ id, messages: UIMessage[], context: { tabId, url, origin, title, trusted, tools: WebMcpToolDescriptor[] } }` | `200 text/event-stream`, AI SDK v7 UI message stream: `start`, `reasoning-*` (if thinking is on), `text-delta`, `tool-input-start/delta/available` (encoded names), `finish`, `error` |
-| Errors | – | `400 invalid_request` (zod issues) · `403 forbidden_origin` · `413` body too large · `402 usage_exhausted` (free credits used up or a paid-only model) · `502 upstream_auth` (bad key) · `503 upstream_busy` (rate limit or concurrency queue full; includes `retryAfter`) or `upstream_unreachable` · in-stream `error` for mid-stream failures |
+| Endpoint          | Request                                                                                                         | Response                                                                                                                                                                                                                                                                                                                                         |
+| ----------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /api/health` | –                                                                                                               | `200 { status, version, model, freeTier: boolean, ollama: { reachable, authOk, modelListed } }` (never includes the key)                                                                                                                                                                                                                         |
+| `POST /api/chat`  | `{ id, messages: UIMessage[], context: { tabId, url, origin, title, trusted, tools: WebMcpToolDescriptor[] } }` | `200 text/event-stream`, AI SDK v7 UI message stream: `start`, `reasoning-*` (if thinking is on), `text-delta`, `tool-input-start/delta/available` (encoded names), `finish`, `error`                                                                                                                                                            |
+| Errors            | –                                                                                                               | `400 invalid_request` (zod issues) · `403 forbidden_origin` · `413` body too large · `402 usage_exhausted` (free credits used up or a paid-only model) · `502 upstream_auth` (bad key) · `503 upstream_busy` (rate limit or concurrency queue full; includes `retryAfter`) or `upstream_unreachable` · in-stream `error` for mid-stream failures |
 
 Rules: the BFF is **stateless** (the client sends the full history); tools are re-sent on every request; aborting on the client ends generation (`c.req.raw.signal`, which propagates to the Ollama request).
 
 ### README plan
+
 - **Root:** what this is and why; the diagrams; prerequisites (Node 24, Corepack, an Ollama account and API key on the Free plan, flagged Chrome 154+); the first-time setup above; scripts and ports; "WebMCP status, last verified on Chrome 154.0.8037.98"; the security model in brief; links.
 - **Per app:**
   - **chrome-ext:** loading unpacked, the any-site permissions and why, the trust model, the message protocol, diagnostics.
@@ -572,8 +592,9 @@ Rules: the BFF is **stateless** (the client sends the full history); tools are r
   - **server:** the schema, migrations, `db:reset`, regenerating `schema.gql`.
 
 ### Demo walkthrough (`docs/demo-walkthrough.md`)
+
 1. `pnpm dev`. Open `/`; the panel's **Tools** view shows 2 tools (`list_boards`, `open_board`).
-2. **Chat:** "Open the WebMCP Launch board" → the page navigates, the tool list grows to 7 live, and the badge updates. *This is the dynamic-tools moment.*
+2. **Chat:** "Open the WebMCP Launch board" → the page navigates, the tool list grows to 7 live, and the badge updates. _This is the dynamic-tools moment._
 3. "What's overdue?" → `get_board({overdue:true})` auto-runs (trusted origin, read-only).
 4. "Add a card 'Write WebMCP blog post' to To Do, label docs, due Friday" → an approval card → approve → the card appears.
 5. "Move all urgent cards from To Do to Doing" → `get_board`, then several `move_card` calls → approve all → the cards slide over.
@@ -582,7 +603,9 @@ Rules: the BFF is **stateless** (the client sends the full history); tools are r
 8. Show the internals: the SSE stream (side panel DevTools), GraphQL calls (page DevTools), content-script logs, and the `docs/ollama-models.md` bake-off table.
 
 ### Risks, unknowns and things to experiment with
+
 **Risks and unknowns**
+
 - **The free allowance runs out.** Its size isn't published and it resets monthly. Mitigations: mock models in all tests, `gpt-oss:20b` or `nemotron-3-nano` for plumbing work, compact tool results, the token counter in the panel, and a clear `402 usage_exhausted` message. Fallback: buy a few dollars of credits (pay-as-you-go), or upgrade.
 - **The free model list can change** (Ollama controls it, and models get retired; see "Retirements" in settings). Mitigations: the allowlist lives in one place (`env.ts`), health reports `modelListed`, and the README says to re-check the settings page.
 - **Tool-calling quality of open-weight models** (the biggest functional risk). Mitigations: the early spike, the bake-off across 3 free models, flat schemas, names instead of ids, validation and repair.
@@ -597,6 +620,7 @@ Rules: the BFF is **stateless** (the client sends the full history); tools are r
 - MV3 side panel: chat state is lost when the panel closes (acceptable; documented).
 
 **Experiments**
+
 - How tool description wording affects each free model's tool choice. Flat vs nested schemas. Names vs ids.
 - Thinking level (`low`/`medium`/`high`/off) vs tool accuracy, latency and token cost.
 - Approval policies; trust-on-first-use flows.
@@ -608,12 +632,14 @@ Rules: the BFF is **stateless** (the client sends the full history); tools are r
 ## 8. Open questions
 
 All seven original questions are answered (see the decisions log). Nothing blocks approval. These defaults can be overridden at any time:
+
 - **Default model:** `gpt-oss:120b` (free tier), with `gpt-oss:20b` for plumbing work, until the Phase 4 bake-off decides between `gpt-oss:120b`, `gemma4:31b` and `nemotron-3-super`.
 - **Pre-trusted origins:** only `http://localhost:5173`.
 
 ---
 
 ## Sources
+
 - WebMCP: [spec (2026-10-02)](https://webmachinelearning.github.io/webmcp/) · [webmachinelearning/webmcp](https://github.com/webmachinelearning/webmcp?tab=readme-ov-file) · [Chrome: WebMCP](https://developer.chrome.com/docs/ai/webmcp) · [Chrome: Declarative API](https://developer.chrome.com/docs/ai/webmcp/declarative-api) · [Chrome: best practices](https://developer.chrome.com/docs/ai/webmcp/best-practices) · [Chrome WebMCP guide](https://github.com/GoogleChrome/modern-web-guidance-src/blob/main/guides/webmcp/webmcp/guide.md) · [Model Context Tool Inspector (source read)](https://github.com/beaufortfrancois/model-context-tool-inspector) · [GoogleChromeLabs/webmcp-tools](https://github.com/GoogleChromeLabs/webmcp-tools) · [adk-js #913](https://github.com/google/adk-js/issues/913) · [WebMCP in Chrome 149](https://dev.to/thousand_miles_ai/webmcp-in-chrome-149-web-pages-get-a-tool-api-for-ai-agents-bfi)
 - AI SDK and Ollama: [AI SDK chatbot tool usage](https://ai-sdk.dev/docs/ai-sdk-ui/chatbot-tool-usage) · [AI SDK 7 migration](https://ai-sdk.dev/docs/migration-guides/migration-guide-7-0) · [AI SDK community provider: Ollama](https://ai-sdk.dev/providers/community-providers/ollama) · [ai-sdk-ollama](https://github.com/jagreehal/ai-sdk-ollama) · [Ollama Cloud docs](https://docs.ollama.com/cloud) · [Ollama pricing (per-model rates, concurrency)](https://ollama.com/pricing) · [Ollama cloud models](https://ollama.com/search?c=cloud) · the free-tier model list from the user's ollama.com/settings (Usage), read 2026-10-03 · [Ollama Cloud free vs Pro (2026)](https://dev.to/amareswer/ollama-cloud-free-vs-pro-usage-limits-pricing-what-you-actually-get-2026-3ieo)
 - NestJS: [v12 release (Trilon)](https://trilon.io/blog/nestjs-12-is-now-available) · [nestjs/schematics ts-esm template (read)](https://github.com/nestjs/schematics) · [Node 24 `node:sqlite`](https://nodejs.org/docs/latest-v24.x/api/sqlite.html)

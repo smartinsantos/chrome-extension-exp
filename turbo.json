@@ -1,0 +1,23 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "codegen": {
+      "outputs": ["src/gql/**", "src/routeTree.gen.ts"]
+    },
+    "schema": {
+      "outputs": ["schema.gql"]
+    },
+    "typecheck": {
+      "dependsOn": ["codegen"]
+    },
+    "build": {
+      "dependsOn": ["^build", "codegen"],
+      "outputs": ["dist/**", ".output/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

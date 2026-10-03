@@ -1,0 +1,9 @@
+# Generated or installed files
+pnpm-lock.yaml
+**/src/gql/**
+**/routeTree.gen.ts
+**/schema.gql
+
+# Local tooling state
+.superpowers/
+.claude/
