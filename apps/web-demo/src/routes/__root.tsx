@@ -1,3 +1,4 @@
+import { Toaster } from '@repo/ui/components/toaster';
 import { TooltipProvider } from '@repo/ui/components/tooltip';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Link, Outlet, createRootRouteWithContext } from '@tanstack/react-router';
@@ -25,6 +26,7 @@ function RootLayout() {
           <Outlet />
         </main>
       </div>
+      <Toaster />
       {import.meta.env.DEV && <ReactQueryDevtools buttonPosition="bottom-left" />}
       {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-right" />}
     </TooltipProvider>

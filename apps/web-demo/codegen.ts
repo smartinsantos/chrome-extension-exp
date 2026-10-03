@@ -8,8 +8,12 @@ const config: CodegenConfig = {
   generates: {
     './src/gql/': {
       preset: 'client',
+      // Fragments only share field selections here; masking would add useFragment ceremony.
+      presetConfig: { fragmentMasking: false },
       config: {
         documentMode: 'string',
+        // The server's IDs are always strings (UUIDs), never numbers.
+        scalars: { ID: { input: 'string', output: 'string' } },
         enumsAsTypes: true,
         useTypeImports: true,
       },

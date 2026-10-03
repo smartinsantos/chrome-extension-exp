@@ -28,6 +28,7 @@
     "cn": "catalog:",
     "lucide-react": "catalog:",
     "shadcn": "catalog:",
+    "sonner": "catalog:",
     "tw-animate-css": "catalog:"
   },
   "peerDependencies": {

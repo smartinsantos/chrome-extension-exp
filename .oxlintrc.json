@@ -69,7 +69,14 @@
       }
     },
     {
-      "files": ["**/*.e2e-spec.ts", "**/*.spec.ts", "**/*.test.ts", "**/*.test.tsx", "**/test/**"],
+      "files": [
+        "**/*.e2e-spec.ts",
+        "**/*.spec.ts",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/test-support/**",
+        "**/test/**"
+      ],
       "rules": {
         "typescript/no-explicit-any": "off",
         "typescript/no-unsafe-type-assertion": "off"
