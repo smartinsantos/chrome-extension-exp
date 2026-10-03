@@ -1,6 +1,6 @@
 # Architecture overview
 
-This page explains how the pieces of WebMCP Lab fit together. It grows as each phase lands; parts marked 🔜 describe the planned design.
+This page explains how the pieces of WebMCP Lab fit together.
 
 ## The big idea
 
@@ -14,7 +14,7 @@ Each part of the system has one job, and secrets stay on the server.
 | **AI model** (Ollama Cloud) | Reads the conversation and the tool list, then answers or requests a tool call | Only what the BFF sends it      |
 | **Server** (NestJS)         | Stores boards, lists and cards                                                 | The database                    |
 
-## How one request flows 🔜
+## How one request flows
 
 You ask the side panel: _"Move all urgent cards to Doing"_.
 
@@ -70,7 +70,7 @@ flowchart TD
   tsconfig --> protocol
   tsconfig --> ui
   protocol -.-> ext[chrome-ext ✅]
-  protocol -.-> bff[chrome-ext-bff 🔜]
+  protocol -.-> bff[chrome-ext-bff ✅]
   ui -.-> ext
   ui -.-> web[web-demo ✅]
 ```
@@ -90,7 +90,7 @@ Shared packages ship their TypeScript source directly; there is no separate buil
 | [`web-server-demo`](../apps/web-server-demo) | ✅     | [Data model, API and errors](../apps/web-server-demo/README.md)                   |
 | [`web-demo`](../apps/web-demo)               | ✅     | [The WebMCP tools it offers](../apps/web-demo/README.md#the-tools-agents-can-use) |
 | [`chrome-ext`](../apps/chrome-ext)           | ✅     | [Install, trust model and permissions](../apps/chrome-ext/README.md)              |
-| `chrome-ext-bff`                             | 🔜     | Phase 4                                                                           |
+| [`chrome-ext-bff`](../apps/chrome-ext-bff)   | ✅     | [Setup, API, models and errors](../apps/chrome-ext-bff/README.md)                 |
 
 ## Where to go next
 

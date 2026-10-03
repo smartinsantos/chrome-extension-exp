@@ -2,7 +2,7 @@
 
 A hands-on playground for learning **WebMCP** and **agentic workflows**: web pages describe the actions they offer as _tools_, and an AI agent living in a Chrome side panel discovers those tools and uses them for you.
 
-> **Status:** 🏗️ Server, web demo (with WebMCP tools) and the Chrome extension's tool inspector are working. The AI agent backend is next. See the [roadmap](#roadmap).
+> **Status:** ✅ All four apps work: the board API, the web demo with WebMCP tools, the Chrome extension (tool inspector + agent chat) and the agent backend on free Ollama Cloud models. Next: polish and experiments (see the [roadmap](#roadmap)).
 
 ## What is WebMCP, in one minute?
 
@@ -33,15 +33,15 @@ flowchart LR
   page <-->|GraphQL| server["NestJS server<br/>+ SQLite"]
 ```
 
-| Piece                                                | What it does                                                           | Status     |
-| ---------------------------------------------------- | ---------------------------------------------------------------------- | ---------- |
-| [`packages/tsconfig`](packages/tsconfig)             | Shared TypeScript settings                                             | ✅ Ready   |
-| [`packages/agent-protocol`](packages/agent-protocol) | The contract between the extension and the BFF                         | ✅ Ready   |
-| [`packages/ui`](packages/ui)                         | Shared design system (shadcn/ui + Tailwind)                            | ✅ Ready   |
-| [`apps/web-server-demo`](apps/web-server-demo)       | NestJS GraphQL API that stores boards, lists and cards in SQLite       | ✅ Ready   |
-| [`apps/web-demo`](apps/web-demo)                     | A Trello-like board that exposes its actions as WebMCP tools           | ✅ Ready   |
-| [`apps/chrome-ext`](apps/chrome-ext)                 | Side-panel extension that finds and runs WebMCP tools on any site      | ✅ Ready   |
-| `apps/chrome-ext-bff`                                | Agent backend that talks to Ollama Cloud and streams to the side panel | 🔜 Phase 4 |
+| Piece                                                | What it does                                                           | Status   |
+| ---------------------------------------------------- | ---------------------------------------------------------------------- | -------- |
+| [`packages/tsconfig`](packages/tsconfig)             | Shared TypeScript settings                                             | ✅ Ready |
+| [`packages/agent-protocol`](packages/agent-protocol) | The contract between the extension and the BFF                         | ✅ Ready |
+| [`packages/ui`](packages/ui)                         | Shared design system (shadcn/ui + Tailwind)                            | ✅ Ready |
+| [`apps/web-server-demo`](apps/web-server-demo)       | NestJS GraphQL API that stores boards, lists and cards in SQLite       | ✅ Ready |
+| [`apps/web-demo`](apps/web-demo)                     | A Trello-like board that exposes its actions as WebMCP tools           | ✅ Ready |
+| [`apps/chrome-ext`](apps/chrome-ext)                 | Side-panel extension that finds and runs WebMCP tools on any site      | ✅ Ready |
+| [`apps/chrome-ext-bff`](apps/chrome-ext-bff)         | Agent backend that talks to Ollama Cloud and streams to the side panel | ✅ Ready |
 
 Want the bigger picture? Read the [architecture overview](docs/architecture.md).
 
@@ -51,19 +51,24 @@ Want the bigger picture? Read the [architecture overview](docs/architecture.md).
 
 | You need                                                                                           | Why                                                                 |
 | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| [Node.js 24](https://nodejs.org) (with [nvm](https://github.com/nvm-sh/nvm): `nvm use`)            | Runtime for every app and tool                                      |
+| [Node.js 24](https://nodejs.org) (with [nvm](https://github.com/nvm-sh/nvm): `nvm use`)            | Runs every app and tool                                             |
 | [pnpm 12](https://pnpm.io) via [Corepack](https://nodejs.org/api/corepack.html): `corepack enable` | Installs the workspace; the exact version comes from `package.json` |
+| Chrome 154+ with `chrome://flags/#enable-webmcp-testing` **Enabled**                               | WebMCP is still behind a flag                                       |
+| A free [Ollama](https://ollama.com) account and API key                                            | The AI model the agent uses                                         |
 
-To see the web demo's WebMCP tools you need **Chrome 154+** with `chrome://flags/#enable-webmcp-testing` enabled. Later phases also need an Ollama API key; those steps will be added here as the apps land.
-
-### Install and check
+### Run everything
 
 ```bash
-nvm use            # switches to Node 24 (from .nvmrc)
-corepack enable    # makes the pinned pnpm version available
+nvm use && corepack enable
 pnpm install
-pnpm check         # lint + format check + typecheck + tests
+cp apps/chrome-ext-bff/.env.example apps/chrome-ext-bff/.env   # then paste your OLLAMA_API_KEY
+pnpm --filter chrome-ext-bff smoke                             # optional: checks key, model and tool calls
+pnpm dev                                                       # API :4000, web demo :5173, agent :8787, extension build
 ```
+
+Then load the extension: open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick `apps/chrome-ext/.output/chrome-mv3-dev`. Open <http://localhost:5173> and click the extension's icon.
+
+The [demo walkthrough](docs/demo-walkthrough.md) shows what to try next.
 
 ## Everyday commands
 
@@ -106,7 +111,7 @@ Need just one package? Use pnpm's filter, for example `pnpm --filter @repo/agent
 | 1     | Shared packages                                               | ✅     |
 | 2     | NestJS + SQLite server, Trello-like web demo, WebMCP tools    | ✅     |
 | 3     | Chrome extension that discovers and runs WebMCP tools by hand | ✅     |
-| 4     | Agent backend on Ollama Cloud, with chat in the side panel    | 🔜     |
+| 4     | Agent backend on Ollama Cloud, with chat in the side panel    | ✅     |
 | 5     | Polish, docs and experiments                                  | 🔜     |
 
 The full reasoning, technology choices and task breakdown live in the [implementation plan](docs/superpowers/plans/2026-10-03-webmcp-monorepo.md).
