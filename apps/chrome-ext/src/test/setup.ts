@@ -12,6 +12,15 @@ if (!('setPointerCapture' in Element.prototype)) {
   });
 }
 
+// jsdom has no layout, so it has no ResizeObserver either; components only need it to exist.
+if (!('ResizeObserver' in globalThis)) {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
 beforeEach(() => {
   fakeBrowser.reset();
   // The side panel router keeps its route in the URL hash; start every test on a clean URL.

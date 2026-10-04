@@ -11,6 +11,7 @@ import { useActiveTabTools } from '../../active-tab/use-active-tab-tools';
 import { BffHealthBanner } from './bff-health-banner';
 import { ChatComposer } from './chat-composer';
 import { ChatMessageList } from './chat-message-list';
+import { useStickToBottom } from './use-stick-to-bottom';
 
 export function ChatView() {
   const { settings } = useExtensionSettings();
@@ -20,6 +21,7 @@ export function ChatView() {
 
 function AgentChat({ bffUrl }: { bffUrl: string }) {
   const agentChat = useAgentChatSession();
+  const { scrollContainerRef, contentRef, scrollToBottom } = useStickToBottom();
   const activeTabTools = useActiveTabTools().data;
   const isBusy = agentChat.status === 'submitted' || agentChat.status === 'streaming';
   const activeTabIsReady = activeTabTools?.kind === 'ready';
@@ -62,16 +64,18 @@ function AgentChat({ bffUrl }: { bffUrl: string }) {
           </p>
         )}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-        <ChatMessageList
-          messages={agentChat.messages}
-          pendingApprovals={agentChat.pendingApprovals}
-        />
-        {agentChat.error !== undefined && (
-          <p role="alert" className="mt-3 rounded bg-destructive/10 p-2 text-xs text-destructive">
-            {describeChatError(agentChat.error)}
-          </p>
-        )}
+      <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+        <div ref={contentRef}>
+          <ChatMessageList
+            messages={agentChat.messages}
+            pendingApprovals={agentChat.pendingApprovals}
+          />
+          {agentChat.error !== undefined && (
+            <p role="alert" className="mt-3 rounded bg-destructive/10 p-2 text-xs text-destructive">
+              {describeChatError(agentChat.error)}
+            </p>
+          )}
+        </div>
       </div>
       <ChatComposer
         isBusy={isBusy}
@@ -83,6 +87,7 @@ function AgentChat({ bffUrl }: { bffUrl: string }) {
             tabId: activeTabTools.tabId,
             origin: activeTabTools.origin,
           });
+          scrollToBottom();
         }}
       />
     </section>
