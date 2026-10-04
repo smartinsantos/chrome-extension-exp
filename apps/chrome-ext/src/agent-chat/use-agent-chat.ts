@@ -25,8 +25,10 @@ interface PendingApproval {
 /**
  * The side panel's agent chat: AI SDK `useChat` talking to the BFF, plus everything that makes
  * tool calls safe — running them in the bound tab, asking the user when needed, and stopping.
+ * Mount it once for the whole side panel (see `AgentChatSessionProvider`): unmounting it ends the
+ * conversation.
  */
-export function useAgentChat({ bffUrl }: { bffUrl: string }) {
+export function useAgentChat() {
   const bindingRef = useRef<ChatBinding | undefined>(undefined);
   const [binding, setBinding] = useState<ChatBinding>();
   const [chatId, setChatId] = useState(() => crypto.randomUUID());
@@ -38,14 +40,18 @@ export function useAgentChat({ bffUrl }: { bffUrl: string }) {
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
-        api: `${bffUrl}/api/chat`,
         prepareSendMessagesRequest: async ({ id, messages }) => {
           const currentBinding = bindingRef.current;
           if (currentBinding === undefined) throw new Error('Open a page with WebMCP tools first.');
-          return { body: { id, messages, pageContext: await loadPageContext(currentBinding) } };
+          // Read per request, so a backend address changed in Settings applies to the next message.
+          const { bffUrl } = await readExtensionSettings();
+          return {
+            api: `${bffUrl}/api/chat`,
+            body: { id, messages, pageContext: await loadPageContext(currentBinding) },
+          };
         },
       }),
-    [bffUrl],
+    [],
   );
 
   const requestUserApproval = useCallback(

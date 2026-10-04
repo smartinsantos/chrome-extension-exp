@@ -4,8 +4,8 @@ import { Skeleton } from '@repo/ui/components/skeleton';
 import type { UIMessage } from 'ai';
 import { RotateCcw } from 'lucide-react';
 
+import { useAgentChatSession } from '../../../agent-chat/agent-chat-session';
 import { describeChatError } from '../../../agent-chat/describe-chat-error';
-import { useAgentChat } from '../../../agent-chat/use-agent-chat';
 import { useExtensionSettings } from '../../../settings/use-extension-settings';
 import { useActiveTabTools } from '../../active-tab/use-active-tab-tools';
 import { BffHealthBanner } from './bff-health-banner';
@@ -19,7 +19,7 @@ export function ChatView() {
 }
 
 function AgentChat({ bffUrl }: { bffUrl: string }) {
-  const agentChat = useAgentChat({ bffUrl });
+  const agentChat = useAgentChatSession();
   const activeTabTools = useActiveTabTools().data;
   const isBusy = agentChat.status === 'submitted' || agentChat.status === 'streaming';
   const activeTabIsReady = activeTabTools?.kind === 'ready';

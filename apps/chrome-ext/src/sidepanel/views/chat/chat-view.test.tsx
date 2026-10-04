@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AgentChatSessionProvider } from '../../../agent-chat/agent-chat-session';
 import { setOriginTrust } from '../../../settings/extension-settings';
+import { askTheAgent } from '../../../test/chat-interactions';
+import { BOARD_PAGE, installFakeAgentBackend } from '../../../test/fake-agent-backend';
 import {
   type ActiveTabTools,
   type cancelToolInTab,
@@ -20,109 +22,16 @@ vi.mock('../../active-tab/active-tab-api', () => ({
   cancelToolInTab: vi.fn<typeof cancelToolInTab>(),
 }));
 
-const BOARD_PAGE: ActiveTabTools = {
-  kind: 'ready',
-  tabId: 7,
-  url: 'https://boards.example/b/1',
-  title: 'Launch board',
-  origin: 'https://boards.example',
-  tools: [
-    {
-      name: 'get_board',
-      description: 'Read the board',
-      inputSchema: { type: 'object' },
-      annotations: { readOnlyHint: true, consequentialHint: false, untrustedContentHint: false },
-      origin: 'https://boards.example',
-    },
-  ],
-  rejectedTools: [],
-};
-
-/** A UI message stream response, exactly as the BFF sends it. */
-function uiMessageStream(chunks: object[]): Response {
-  const body = [
-    ...chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`),
-    'data: [DONE]\n\n',
-  ].join('');
-  return new Response(body, {
-    headers: { 'content-type': 'text/event-stream', 'x-vercel-ai-ui-message-stream': 'v1' },
-  });
-}
-
-const TOOL_CALL_ANSWER = [
-  { type: 'start' },
-  { type: 'start-step' },
-  { type: 'tool-input-start', toolCallId: 'call-1', toolName: 'get_board' },
-  {
-    type: 'tool-input-available',
-    toolCallId: 'call-1',
-    toolName: 'get_board',
-    input: { overdue: true },
-  },
-  { type: 'finish-step' },
-  { type: 'finish' },
-];
-
-const FINAL_TEXT_ANSWER = [
-  { type: 'start' },
-  { type: 'start-step' },
-  { type: 'text-start', id: 't1' },
-  { type: 'text-delta', id: 't1', delta: 'One card is overdue: Fix bug.' },
-  { type: 'text-end', id: 't1' },
-  { type: 'finish-step' },
-  { type: 'finish', messageMetadata: { totalTokens: 321 } },
-];
-
-interface ChatRequestBody {
-  messages: {
-    role: string;
-    parts: { type: string; state?: string; output?: unknown; errorText?: string }[];
-  }[];
-  pageContext: { origin: string; isTrustedOrigin: boolean };
-}
-
-function installFakeBff() {
-  const chatRequests: ChatRequestBody[] = [];
-  const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
-    const url = input instanceof Request ? input.url : input.toString();
-    if (url.endsWith('/api/health')) {
-      return Response.json({
-        status: 'ok',
-        model: 'gpt-oss:120b',
-        freeTier: true,
-        ollama: { reachable: true, authOk: true, modelListed: true },
-      });
-    }
-    const body = JSON.parse(typeof init?.body === 'string' ? init.body : '{}') as ChatRequestBody;
-    chatRequests.push(body);
-    const hasToolResult = body.messages.some((message) =>
-      message.parts.some(
-        (part) => part.state === 'output-available' || part.state === 'output-error',
-      ),
-    );
-    return uiMessageStream(hasToolResult ? FINAL_TEXT_ANSWER : TOOL_CALL_ANSWER);
-  });
-  vi.stubGlobal('fetch', fetchMock);
-  return { chatRequests };
-}
-
 function renderChat() {
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <ChatView />
+      <AgentChatSessionProvider>
+        <ChatView />
+      </AgentChatSessionProvider>
     </QueryClientProvider>,
   );
-}
-
-async function askTheAgent(text: string) {
-  const user = userEvent.setup();
-  const messageField = await screen.findByRole('textbox', { name: 'Message to the agent' });
-  await waitFor(() => expect(messageField).toBeEnabled());
-  await user.type(messageField, text);
-  await user.click(screen.getByRole('button', { name: 'Send' }));
-  return user;
 }
 
 describe('ChatView', () => {
@@ -139,7 +48,7 @@ describe('ChatView', () => {
   });
 
   it('asks before running a tool on an untrusted site, runs it once allowed, and shows the answer', async () => {
-    const { chatRequests } = installFakeBff();
+    const { chatRequests } = installFakeAgentBackend();
     renderChat();
 
     const user = await askTheAgent('What is overdue?');
@@ -161,7 +70,7 @@ describe('ChatView', () => {
   });
 
   it('tells the agent when the user denies a tool call, without running it', async () => {
-    const { chatRequests } = installFakeBff();
+    const { chatRequests } = installFakeAgentBackend();
     renderChat();
 
     const user = await askTheAgent('What is overdue?');
@@ -175,7 +84,7 @@ describe('ChatView', () => {
 
   it('runs read-only tools on a trusted site without asking', async () => {
     await setOriginTrust('https://boards.example', true);
-    installFakeBff();
+    installFakeAgentBackend();
     renderChat();
 
     await askTheAgent('What is overdue?');
