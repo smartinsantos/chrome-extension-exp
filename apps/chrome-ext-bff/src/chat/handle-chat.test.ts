@@ -149,7 +149,55 @@ describe('createChatHandler', () => {
     const instructions = JSON.stringify(model.doStreamCalls[0]?.prompt);
     expect(instructions).toMatch(/not trusted/i);
     expect(instructions).toContain('Trust this site');
+    expect(instructions).toMatch(/tools you used earlier .*no longer available/i);
     expect(instructions).not.toContain('Move a card.');
+  });
+
+  it('lets the model recover in the same request when it calls a tool it was not offered', async () => {
+    const answers: ModelStreamPart[][] = [
+      [
+        {
+          type: 'tool-call',
+          toolCallId: 'call-1',
+          toolName: 'move_card',
+          input: '{"cardId":"c7","toList":"Doing"}',
+        },
+        { ...FINISH_CHUNK, finishReason: { unified: 'tool-calls', raw: undefined } },
+      ],
+      [
+        { type: 'text-start', id: 't1' },
+        { type: 'text-delta', id: 't1', delta: 'This site is not trusted.' },
+        { type: 'text-end', id: 't1' },
+        FINISH_CHUNK,
+      ],
+    ];
+    let modelCallCount = 0;
+    const model = new MockLanguageModelV4({
+      doStream: async () =>
+        Promise.resolve({
+          stream: simulateReadableStream({ chunks: answers[modelCallCount++] ?? [] }),
+        }),
+    });
+    const handleChat = createChatHandler({ model, maxToolResultChars: 20_000 });
+
+    const chunks = await readStreamChunks(
+      await handleChat(chatRequest({ isTrustedOrigin: false })),
+    );
+
+    expect(model.doStreamCalls).toHaveLength(2);
+    expect(JSON.stringify(model.doStreamCalls[1]?.prompt)).toContain(
+      "unavailable tool 'move_card'",
+    );
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: 'tool-input-error',
+        toolName: 'move_card',
+        errorText: expect.stringContaining("unavailable tool 'move_card'"),
+      }),
+    );
+    expect(chunks).toContainEqual(
+      expect.objectContaining({ type: 'text-delta', delta: 'This site is not trusted.' }),
+    );
   });
 
   it('shortens very long tool results before the model sees them', async () => {

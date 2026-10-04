@@ -132,6 +132,8 @@ sequenceDiagram
   BFF-->>Panel: streamed answer + tokens used
 ```
 
+Models sometimes call a tool that doesn't exist, for example one they used earlier in the conversation before you stopped trusting the site. The backend doesn't send those calls to the side panel. It tells the model exactly what went wrong (_"Model tried to call unavailable tool 'move_card'"_) and lets it correct itself in the same request, with at most 3 model calls per request.
+
 ## When something goes wrong
 
 Errors explain what to do:

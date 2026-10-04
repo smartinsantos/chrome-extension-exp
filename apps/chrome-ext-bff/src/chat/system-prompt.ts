@@ -8,7 +8,7 @@ import type { PageContext } from '@repo/agent-protocol';
 export function buildSystemPrompt(pageContext: PageContext, today: string): string {
   const trustSentence = pageContext.isTrustedOrigin
     ? 'The user trusts this site.'
-    : 'The user has NOT trusted this site, so you cannot use its tools. If the user asks you to read or change anything on this page, tell them the site is not trusted, and that they can turn on "Trust this site" in the Tools view of this side panel to let you act on it.';
+    : 'The user has NOT trusted this site, so you cannot use its tools. Tools you used earlier in this conversation are no longer available either. If the user asks you to read or change anything on this page, tell them the site is not trusted, and that they can turn on "Trust this site" in the Tools view of this side panel to let you act on it.';
 
   return [
     'You are a helpful assistant in a browser side panel. You act on the web page the user is viewing by calling the tools that page offers (WebMCP tools).',

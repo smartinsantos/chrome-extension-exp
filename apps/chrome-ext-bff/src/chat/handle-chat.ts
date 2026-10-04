@@ -4,9 +4,12 @@ import {
   normalizeToolDescriptors,
 } from '@repo/agent-protocol';
 import {
+  InvalidToolInputError,
   type LanguageModel,
+  NoSuchToolError,
   convertToModelMessages,
   createUIMessageStreamResponse,
+  isStepCount,
   safeValidateUIMessages,
   streamText,
   toUIMessageStream,
@@ -24,6 +27,13 @@ interface ChatHandlerOptions {
 }
 
 const UNEXPECTED_ERROR_MESSAGE = 'The agent hit an unexpected error. Check the BFF logs.';
+
+/**
+ * Model calls per chat request. Page tools run in the browser, so a call to one always ends the
+ * request; extra steps only happen after a call the SDK rejected itself (a tool that wasn't
+ * offered, or input that doesn't match its schema), letting the model read why and recover.
+ */
+const MAX_MODEL_STEPS_PER_REQUEST = 3;
 
 /**
  * Handles one chat turn: validates what the side panel sent, offers the page's tools to the
@@ -70,6 +80,7 @@ export function createChatHandler({
         truncateToolOutputs(validatedMessages.data, maxToolResultChars),
       ),
       tools: toolSet,
+      stopWhen: isStepCount(MAX_MODEL_STEPS_PER_REQUEST),
       abortSignal: request.signal,
       // Errors are reported once, below, where they are turned into a message for the user.
       onError: () => undefined,
@@ -79,6 +90,8 @@ export function createChatHandler({
       stream: toUIMessageStream({
         stream: result.stream,
         onError: (error) => {
+          const rejectedToolCallReason = describeRejectedToolCall(error);
+          if (rejectedToolCallReason !== undefined) return rejectedToolCallReason;
           const upstreamFailure = mapUpstreamError(error);
           if (upstreamFailure === undefined) console.error('Chat request failed:', error);
           return upstreamFailure?.message ?? UNEXPECTED_ERROR_MESSAGE;
@@ -88,4 +101,16 @@ export function createChatHandler({
       }),
     });
   };
+}
+
+/**
+ * Why the SDK rejected a tool call (a tool that wasn't offered, or input that doesn't match its
+ * schema). The reason is stored in the conversation and read by the model in later turns, so it
+ * must stay this precise. The SDK reports it as the error itself, or already as its message.
+ */
+function describeRejectedToolCall(error: unknown): string | undefined {
+  if (NoSuchToolError.isInstance(error) || InvalidToolInputError.isInstance(error)) {
+    return error.message;
+  }
+  return typeof error === 'string' ? error : undefined;
 }
