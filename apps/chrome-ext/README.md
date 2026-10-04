@@ -5,9 +5,9 @@ A Chrome extension that lives in the **side panel** and works with any website t
 - it **finds** the tools the current page offers,
 - shows what each one does and which ones claim to be safe,
 - lets you **run** a tool by hand, exactly as an AI agent would,
-- and (in the next phase) lets an AI agent run them for you, asking first when it matters.
+- and lets an **AI agent** run them for you through a chat, asking first when it matters.
 
-It's built with [WXT](https://wxt.dev), [React](https://react.dev) and the shared [design system](../../packages/ui).
+It's built with [WXT](https://wxt.dev), [React](https://react.dev), the [AI SDK](https://ai-sdk.dev/docs/ai-sdk-ui/chatbot) chat hooks and the shared [design system](../../packages/ui). The AI itself runs in the [agent backend](../chrome-ext-bff), so the extension never holds an API key.
 
 ## Try it
 
@@ -20,6 +20,7 @@ It's built with [WXT](https://wxt.dev), [React](https://react.dev) and the share
 
 3. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and choose `apps/chrome-ext/dist/chrome-mv3`. With `dev`, choose `dist/chrome-mv3-dev`.
 4. Open a page with WebMCP tools (for example the [web demo](../web-demo) at <http://localhost:5173>) and click the extension's toolbar icon. The side panel opens, and the badge on the icon shows how many tools the page offers.
+5. For the **Chat** view, also start the [agent backend](../chrome-ext-bff/README.md#set-it-up). `pnpm dev` at the repository root starts everything at once.
 
 The extension always has the same id, `dmnphemkaphmemfkmonbngjofhmbenck`, on every computer (see [Why the id never changes](#why-the-id-never-changes)).
 
@@ -28,16 +29,50 @@ The extension always has the same id, `dmnphemkaphmemfkmonbngjofhmbenck`, on eve
 | View         | What it's for                                                                                     |
 | ------------ | ------------------------------------------------------------------------------------------------- |
 | **Tools**    | The current site, whether you trust it, its tools, and a form to run any tool with JSON arguments |
-| **Chat**     | Talk to the AI agent (arrives in Phase 4)                                                         |
+| **Chat**     | Ask the AI agent to do things on the page; approve or deny its tool calls; see the tokens used    |
 | **Settings** | The agent backend's address, automatic runs for read-only tools, your trusted sites, diagnostics  |
 
-When a page can't show tools, the panel says why:
+When something is missing, the panel says why:
 
 | Message                             | Meaning and fix                                                            |
 | ----------------------------------- | -------------------------------------------------------------------------- |
 | _WebMCP is not available_           | The browser has no WebMCP. Enable the flag above and relaunch Chrome.      |
 | _Reload the page to connect_        | The tab was open before the extension loaded. Reload it.                   |
 | _Extensions can't run on this page_ | Browser pages such as `chrome://` and the Chrome Web Store are off limits. |
+| _The agent backend isn't running_   | Chat only. Start it with `pnpm --filter chrome-ext-bff dev`.               |
+
+More fixes are in the [troubleshooting guide](../../docs/troubleshooting.md#in-the-side-panel).
+
+## How the chat works
+
+The chat sends your message and the page's tools to the agent backend. When the model asks for a tool, the side panel runs it in the page (asking you first when needed) and sends the result back, so the model can carry on.
+
+```mermaid
+sequenceDiagram
+  actor You
+  participant Panel as Side panel
+  participant BFF as Agent backend
+  participant Page as Page
+  You->>Panel: "Move the urgent cards to Doing"
+  Panel->>BFF: conversation + page tools
+  BFF-->>Panel: tool call: move_card({ … })
+  Panel->>You: Allow or Deny?
+  You->>Panel: Allow
+  Panel->>Page: executeTool(move_card)
+  Page-->>Panel: result
+  Panel->>BFF: conversation + result
+  BFF-->>Panel: "Moved 2 cards." (+ tokens used)
+```
+
+A few rules keep it predictable:
+
+| Rule                                             | Why                                                                                      |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| A chat stays with the tab and site it started on | Tools never run on a page you switched to by accident. **New chat** starts over.         |
+| Tool names and inputs are checked before running | The page may have dropped the tool since the model saw it; inputs must be JSON objects   |
+| At most 10 tool rounds per message               | A confused model can't loop forever. Send another message to let it keep going.          |
+| **Stop** cancels everything                      | It ends the answer, denies waiting approvals and cancels tools still running in the page |
+| Denying a tool tells the model not to retry it   | You stay in charge without arguing with the agent                                        |
 
 ## How the pieces talk
 
@@ -67,6 +102,8 @@ sequenceDiagram
 | [WebMCP host](src/webmcp-host/webmcp-host.ts)       | (inside the above) | Lists, runs and watches tools; handles timeouts, cancelling and Chrome quirks |
 | [Background worker](src/entrypoints/background.ts)  | Extension          | Opens the side panel, connects already-open tabs, keeps the tool-count badge  |
 | [Side panel](src/sidepanel)                         | Extension page     | Everything you see                                                            |
+| [Agent chat](src/agent-chat)                        | Side panel         | Talks to the agent backend and runs the agent's tool calls safely             |
+| [Trust rules](src/trust/decide-tool-approval.ts)    | Side panel         | Decides whether a tool call runs on its own or asks you first                 |
 | [Messages](src/messaging/extension-messages.ts)     | Shared             | The exact shape of every message, checked on arrival                          |
 
 ## Staying safe on any website

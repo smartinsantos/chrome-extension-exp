@@ -2,7 +2,7 @@
 
 A hands-on playground for learning **WebMCP** and **agentic workflows**: web pages describe the actions they offer as _tools_, and an AI agent living in a Chrome side panel discovers those tools and uses them for you.
 
-> **Status:** ✅ All four apps work: the board API, the web demo with WebMCP tools, the Chrome extension (tool inspector + agent chat) and the agent backend on free Ollama Cloud models. Next: polish and experiments (see the [roadmap](#roadmap)).
+> **Status:** ✅ All four apps work: the board API, the web demo with WebMCP tools, the Chrome extension (tool inspector + agent chat) and the agent backend on free Ollama Cloud models (checked live with the [smoke test](apps/chrome-ext-bff/README.md#set-it-up)). Next: polish and experiments (see the [roadmap](#roadmap)).
 
 ## What is WebMCP, in one minute?
 
@@ -59,7 +59,7 @@ Want the bigger picture? Read the [architecture overview](docs/architecture.md).
 ### Run everything
 
 ```bash
-nvm use && corepack enable
+nvm use && corepack enable                                     # every new terminal: nvm use
 pnpm install
 cp apps/chrome-ext-bff/.env.example apps/chrome-ext-bff/.env   # then paste your OLLAMA_API_KEY
 pnpm --filter chrome-ext-bff smoke                             # optional: checks key, model and tool calls
@@ -68,18 +68,31 @@ pnpm dev                                                       # API :4000, web 
 
 Then load the extension: open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick `apps/chrome-ext/dist/chrome-mv3-dev`. Open <http://localhost:5173> and click the extension's icon.
 
-The [demo walkthrough](docs/demo-walkthrough.md) shows what to try next.
+The [demo walkthrough](docs/demo-walkthrough.md) shows what to try next. If something doesn't start, see [troubleshooting](docs/troubleshooting.md).
+
+| `pnpm dev` starts                                           | Where                                 |
+| ----------------------------------------------------------- | ------------------------------------- |
+| [NestJS GraphQL server](apps/web-server-demo)               | <http://localhost:4000/graphql>       |
+| [Web demo](apps/web-demo)                                   | <http://localhost:5173>               |
+| [Agent backend](apps/chrome-ext-bff)                        | <http://127.0.0.1:8787/api/health>    |
+| [Extension build](apps/chrome-ext), rebuilt on every change | `apps/chrome-ext/dist/chrome-mv3-dev` |
+
+Only want the board, without the extension and the AI? `pnpm dev:web` starts just the server and the web demo, with no API key needed.
 
 ## Everyday commands
 
 | Command           | What it does                                                                           |
 | ----------------- | -------------------------------------------------------------------------------------- |
-| `pnpm check`      | Everything below except formatting fixes: run it before committing                     |
+| `pnpm dev`        | Starts every app in watch mode                                                         |
+| `pnpm dev:web`    | Starts only the server and the web demo                                                |
+| `pnpm build`      | Builds every app (the extension lands in `apps/chrome-ext/dist/chrome-mv3`)            |
+| `pnpm check`      | Lint, format check, type check and tests: run it before committing                     |
 | `pnpm test`       | Runs every test in the workspace                                                       |
 | `pnpm test:watch` | Re-runs tests as you edit                                                              |
 | `pnpm lint`       | Lints with [oxlint](https://oxc.rs/docs/guide/usage/linter), type-aware, warnings fail |
 | `pnpm format`     | Formats everything with [Prettier](https://prettier.io)                                |
 | `pnpm typecheck`  | Type-checks every package                                                              |
+| `pnpm codegen`    | Regenerates the web demo's GraphQL types                                               |
 
 Need just one package? Use pnpm's filter, for example `pnpm --filter @repo/agent-protocol test`, or Vitest's project flag: `pnpm test --project ui`.
 
@@ -87,13 +100,24 @@ Need just one package? Use pnpm's filter, for example `pnpm --filter @repo/agent
 
 ```text
 .
-├── apps/         # runnable applications (arriving phase by phase)
-├── packages/     # shared code used by the apps
-│   ├── agent-protocol/
-│   ├── tsconfig/
-│   └── ui/
-└── docs/         # architecture notes and implementation plans
+├── apps/                 # runnable applications
+│   ├── chrome-ext/       # side-panel extension (WXT + React)
+│   ├── chrome-ext-bff/   # agent backend (Hono + AI SDK)
+│   ├── web-demo/         # Trello-like board with WebMCP tools (React + Vite)
+│   └── web-server-demo/  # GraphQL API (NestJS + SQLite)
+├── packages/             # shared code used by the apps
+│   ├── agent-protocol/   # extension ↔ backend contract
+│   ├── tsconfig/         # TypeScript presets
+│   └── ui/               # design system
+└── docs/                 # architecture, walkthrough, troubleshooting and plans
 ```
+
+| Doc                                            | Read it to…                                   |
+| ---------------------------------------------- | --------------------------------------------- |
+| [Architecture overview](docs/architecture.md)  | See how the pieces fit and where secrets live |
+| [Demo walkthrough](docs/demo-walkthrough.md)   | Try the whole thing in 10 minutes             |
+| [Troubleshooting](docs/troubleshooting.md)     | Fix a start-up error or a side-panel warning  |
+| [Implementation plans](docs/superpowers/plans) | Follow the reasoning behind each phase        |
 
 | Tool                                                       | Role                                                                                               |
 | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |

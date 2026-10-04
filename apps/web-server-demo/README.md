@@ -124,5 +124,6 @@ Unit tests use a real SQLite database in memory instead of mocks, so the actual 
 
 ### Good to know
 
+- **Node.js 24 is required.** On older versions (such as 22) the NestJS CLI stops with `ERR_REQUIRE_CYCLE_MODULE`. Run `nvm use` first; see [troubleshooting](../../docs/troubleshooting.md#starting-the-apps).
 - **NestJS dependency injection and type-only imports.** NestJS finds what to inject by reading the constructor's parameter types at runtime. If a class is imported with `import type`, that information disappears and injection silently breaks. That's why the linter's "use `import type`" rule is turned off for this app in [`.oxlintrc.json`](../../.oxlintrc.json).
 - **One copy of `graphql` in tests.** The `graphql` package ships two builds. [`vitest.shared.ts`](vitest.shared.ts) makes tests load the same one NestJS uses.

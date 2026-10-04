@@ -10,6 +10,12 @@ The data lives in the [NestJS server](../web-server-demo), which the app calls t
 ## Run it
 
 ```bash
+pnpm dev:web          # from the repository root: API on :4000 and app on :5173
+```
+
+Or start them one at a time:
+
+```bash
 pnpm --filter web-server-demo build && pnpm --filter web-server-demo start   # API on :4000
 pnpm --filter web-demo dev                                                     # app on :5173
 ```

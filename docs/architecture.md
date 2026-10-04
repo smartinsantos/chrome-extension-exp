@@ -40,16 +40,29 @@ sequenceDiagram
   Server-->>Page: Cards
   Page-->>Panel: Result
   Panel->>BFF: Result, continue
+  BFF->>Model: Conversation + result
   Model-->>BFF: Call move_card × 3
   BFF-->>Panel: Tool calls
   Panel->>You: Approve these moves?
   You->>Panel: Approve
   Panel->>Page: Run move_card × 3 (the board updates live)
+  Panel->>BFF: Results, continue
+  BFF->>Model: Conversation + results
   Model-->>BFF: "Moved 3 cards to Doing."
-  BFF-->>Panel: Final answer
+  BFF-->>Panel: Final answer + tokens used
 ```
 
 Notice that **the model never touches the page directly**. It only _asks_ for tool calls, and the extension carries them out after the checks described below.
+
+## Where everything runs
+
+| Part             | Runs at                                 | Holds secrets?                     |
+| ---------------- | --------------------------------------- | ---------------------------------- |
+| NestJS server    | `localhost:4000`                        | No                                 |
+| Web demo         | `localhost:5173` (forwards `/graphql`)  | No                                 |
+| Agent backend    | `127.0.0.1:8787`, this machine only     | Yes: the Ollama API key, in `.env` |
+| Chrome extension | Chrome's side panel, fixed extension id | No                                 |
+| AI model         | [Ollama Cloud](https://ollama.com)      | n/a                                |
 
 ## Staying safe on any website
 
@@ -57,6 +70,7 @@ The extension works on any site that uses WebMCP, and any site can describe its 
 
 - **Size limits.** A page can expose at most 64 tools, and descriptions and schemas have size caps. The full table is in the [agent-protocol README](../packages/agent-protocol/README.md#limits-for-untrusted-pages).
 - **Approval first.** On sites you haven't marked as trusted, every tool call needs your click, even ones the page claims are "read-only".
+- **One page per chat.** A chat stays with the tab it started on, so the agent can't act on a page you switched to.
 - **Safe tool names.** Page tool names are converted into names every AI provider accepts, and converted back before running. See [how tool names are translated](../packages/agent-protocol/README.md#translating-tool-names-for-the-model).
 
 ## Shared packages ✅
@@ -94,5 +108,7 @@ Shared packages ship their TypeScript source directly; there is no separate buil
 
 ## Where to go next
 
+- The [demo walkthrough](demo-walkthrough.md) lets you try every piece in 10 minutes.
+- [Troubleshooting](troubleshooting.md) covers start-up errors and side-panel warnings.
 - The [implementation plan](superpowers/plans/2026-10-03-webmcp-monorepo.md) explains every technology choice and the phased roadmap.
 - The [WebMCP specification](https://webmachinelearning.github.io/webmcp/) and [Chrome's WebMCP guide](https://developer.chrome.com/docs/ai/webmcp) describe the browser API itself.

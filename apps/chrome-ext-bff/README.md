@@ -36,6 +36,7 @@ All settings live in `apps/chrome-ext-bff/.env` (never committed). The [example 
 | Variable                | Default                | What it does                                                       |
 | ----------------------- | ---------------------- | ------------------------------------------------------------------ |
 | `OLLAMA_API_KEY`        | _(required)_           | Your Ollama Cloud key. Stays in this process only.                 |
+| `OLLAMA_BASE_URL`       | `https://ollama.com`   | Where Ollama Cloud lives. The key is only ever sent here           |
 | `AI_MODEL`              | `gpt-oss:120b`         | Which model answers (see below)                                    |
 | `AI_ALLOW_ANY_MODEL`    | `false`                | Set to `true` to use models outside the free tier                  |
 | `AI_THINK`              | `low`                  | How much the model reasons first: `low`, `medium`, `high` or `off` |
@@ -60,10 +61,28 @@ The free allowance is small and resets monthly; check how much is left at [ollam
 
 ## API
 
-| Endpoint          | What it does                                                                                                              |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/health` | Whether Ollama Cloud is reachable, accepts the key, and offers the model. Spends no tokens.                               |
-| `POST /api/chat`  | Runs one chat turn and streams the answer ([AI SDK UI message stream](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol)) |
+| Endpoint          | What it does                                                                                                                     |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/health` | Whether Ollama Cloud is reachable, accepts the key, and offers the model. Spends no tokens ([how](#how-the-health-check-works)). |
+| `POST /api/chat`  | Runs one chat turn and streams the answer ([AI SDK UI message stream](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol))        |
+
+### How the health check works
+
+The side panel asks for health every 30 seconds, so the check must be free and quick. It makes two calls to Ollama Cloud and remembers the answer for a minute:
+
+| Call                        | Tells us                                              |
+| --------------------------- | ----------------------------------------------------- |
+| `GET /api/tags` (public)    | Ollama is reachable, and whether it offers your model |
+| `POST /api/me` with the key | The key is valid (`200`) or not (`401`)               |
+
+`POST /api/me` returns your account details. The backend only reads the status code and throws the details away. (Ollama's `/api/ps` isn't used: on Ollama Cloud it answers `401` to every key, valid or not.)
+
+```bash
+curl -s http://127.0.0.1:8787/api/health
+# {"status":"ok","model":"gpt-oss:120b","freeTier":true,"ollama":{"reachable":true,"authOk":true,"modelListed":true}}
+```
+
+### The chat request
 
 A chat request carries the conversation plus the page the user is looking at. The exact shape is [`chatRequestBodySchema`](../../packages/agent-protocol/src/chat-api/chat-request-schema.ts):
 
@@ -124,10 +143,14 @@ Errors explain what to do:
 | _Ollama Cloud is busy_                         | The free plan runs one request at a time | Try again in a moment                            |
 | _Could not reach Ollama Cloud_                 | No internet, or Ollama is down           | Check your connection                            |
 | _The agent backend isn't running_ (side panel) | This server isn't started                | `pnpm --filter chrome-ext-bff dev`               |
+| _OLLAMA_API_KEY is missing_ (at start)         | There's no `.env`, or the key is empty   | Follow [Set it up](#set-it-up)                   |
+| `EADDRINUSE` (at start)                        | Port 8787 is taken, often by an old run  | Stop the old run, or change `PORT`               |
+
+Still stuck? The [troubleshooting guide](../../docs/troubleshooting.md#checking-the-agent-backend-directly) shows how to tell a backend problem from an extension problem.
 
 ## Security
 
-- The API key only exists in this process. It is never sent to the extension or logged, and error messages never include it.
+- The API key only exists in this process. It is only sent to `OLLAMA_BASE_URL`, never to the extension or the logs, and error messages never include it.
 - The server listens on **127.0.0.1** only, so other machines can't reach it.
 - Browsers must send the extension's origin. Other websites (or other extensions) get `403`.
 - Everything the page sent is checked again here (sizes, tool limits, names), even though the extension already checked it.

@@ -10,7 +10,7 @@ You need the full setup from the [README](../README.md#getting-started). The sho
 | ---- | ------------------------------------------------------------------------------------------------------------------------- |
 | 1    | Chrome 154+ with `chrome://flags/#enable-webmcp-testing` **Enabled** (then relaunch)                                      |
 | 2    | `apps/chrome-ext-bff/.env` with your `OLLAMA_API_KEY` ([how](../apps/chrome-ext-bff/README.md#set-it-up))                 |
-| 3    | `pnpm dev` (starts the API, the web demo, the agent backend and the extension build)                                      |
+| 3    | `nvm use`, then `pnpm dev` (starts the API, the web demo, the agent backend and the extension build)                      |
 | 4    | Load `apps/chrome-ext/dist/chrome-mv3-dev` unpacked in `chrome://extensions` ([how](../apps/chrome-ext/README.md#try-it)) |
 
 ## 1. Meet the page's tools
@@ -32,15 +32,17 @@ That's WebMCP's `toolchange` at work: the page offers tools that fit what's on s
 
 Switch to **Chat** (on the WebMCP Launch board):
 
-| You type                                                              | What happens                                                                                      |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| "What's overdue?"                                                     | The agent calls `get_board` (read-only, on a trusted site, so it runs without asking) and answers |
-| "Add a card 'Record the demo video' to To Do, due Friday, label docs" | An approval card appears for `create_card`. Click **Allow**: the card appears on the board        |
-| "Move every urgent card in To Do to Doing"                            | Several `move_card` calls, each needing approval. The board updates live as you allow them        |
-| "Archive 'Pick the AI model provider'"                                | `archive_card` is marked consequential, so it always asks. **Deny** it, and the agent accepts no  |
-| Ask again and **Allow** it                                            | The card is archived, and the page shows an **Undo** button                                       |
+| You type                                                              | What happens                                                                                           |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| "What's overdue?"                                                     | The agent calls `get_board` (read-only, on a trusted site, so it runs without asking) and answers      |
+| "Add a card 'Record the demo video' to To Do, due Friday, label docs" | An approval card appears for `create_card`. Click **Allow**: the card appears on the board             |
+| "Move every urgent card in To Do to Doing"                            | Several `move_card` calls, each needing approval. The board updates live as you allow them             |
+| "Archive 'Pick the AI model provider'"                                | `archive_card` is marked consequential, so it always asks. **Deny** it: the agent is told not to retry |
+| Ask again and **Allow** it                                            | The card is archived, and the page shows an **Undo** button                                            |
 
-The token counter at the top of the chat shows how much of your free Ollama usage the conversation used.
+The token counter at the top of the chat shows how much of your free Ollama usage the conversation used. Changed your mind mid-answer? **Stop** ends the answer and cancels any tool still waiting or running.
+
+Something looks off (a yellow warning above the chat, or no tools)? Check [troubleshooting](troubleshooting.md#in-the-side-panel).
 
 ## 4. Try another site
 
