@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentChatSessionProvider } from '../../../agent-chat/agent-chat-session';
 import { setOriginTrust } from '../../../settings/extension-settings';
-import { askTheAgent } from '../../../test/chat-interactions';
+import { askTheAgent, trustSiteButAskBeforeEveryTool } from '../../../test/chat-interactions';
 import { BOARD_PAGE, installFakeAgentBackend } from '../../../test/fake-agent-backend';
 import {
   type ActiveTabTools,
@@ -47,7 +47,8 @@ describe('ChatView', () => {
     vi.unstubAllGlobals();
   });
 
-  it('asks before running a tool on an untrusted site, runs it once allowed, and shows the answer', async () => {
+  it('asks before running a tool when automatic runs are off, runs it once allowed, and shows the answer', async () => {
+    await trustSiteButAskBeforeEveryTool(BOARD_PAGE.origin);
     const { chatRequests } = installFakeAgentBackend();
     renderChat();
 
@@ -63,13 +64,14 @@ describe('ChatView', () => {
     expect(runToolInTab).toHaveBeenCalledWith(7, 'get_board', { overdue: true }, 'call-1');
     expect(chatRequests[0]?.pageContext).toMatchObject({
       origin: 'https://boards.example',
-      isTrustedOrigin: false,
+      isTrustedOrigin: true,
     });
     expect(JSON.stringify(chatRequests[1]?.messages)).toContain('"output":{"cards":["Fix bug"]}');
     expect(await screen.findByText('321 tokens')).toBeInTheDocument();
   });
 
   it('tells the agent when the user denies a tool call, without running it', async () => {
+    await trustSiteButAskBeforeEveryTool(BOARD_PAGE.origin);
     const { chatRequests } = installFakeAgentBackend();
     renderChat();
 
@@ -80,6 +82,19 @@ describe('ChatView', () => {
     await waitFor(() => expect(chatRequests).toHaveLength(2));
     expect(runToolInTab).not.toHaveBeenCalled();
     expect(JSON.stringify(chatRequests[1]?.messages)).toContain('The user declined this action');
+  });
+
+  it('never runs or offers to run tools on a site the user has not trusted, and tells the agent why', async () => {
+    const { chatRequests } = installFakeAgentBackend();
+    renderChat();
+
+    await askTheAgent('What is overdue?');
+
+    await waitFor(() => expect(chatRequests).toHaveLength(2));
+    expect(chatRequests[0]?.pageContext.isTrustedOrigin).toBe(false);
+    expect(screen.queryByRole('button', { name: 'Allow' })).not.toBeInTheDocument();
+    expect(runToolInTab).not.toHaveBeenCalled();
+    expect(JSON.stringify(chatRequests[1]?.messages)).toContain('is not trusted');
   });
 
   it('runs read-only tools on a trusted site without asking', async () => {

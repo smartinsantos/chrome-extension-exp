@@ -77,6 +77,13 @@ export async function runAgentToolCall(
 
   const approvalSettings = await dependencies.readApprovalSettings();
   const decision = decideToolApproval({ annotations: tool.annotations, ...approvalSettings });
+  if (decision === 'refuse') {
+    // Trust can be removed mid-conversation, after the model was offered the site's tools.
+    return failure(
+      `${binding.origin} is not trusted, so its tools can't be used. Tell the user, and that ` +
+        'they can turn on "Trust this site" in the Tools view if they want you to act on it.',
+    );
+  }
   if (decision === 'ask-user') {
     const isApproved = await dependencies.requestUserApproval({
       toolCallId: toolCall.toolCallId,

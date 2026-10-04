@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { askTheAgent } from '../test/chat-interactions';
+import { askTheAgent, trustSiteButAskBeforeEveryTool } from '../test/chat-interactions';
 import { BOARD_PAGE, installFakeAgentBackend } from '../test/fake-agent-backend';
 import {
   type ActiveTabTools,
@@ -51,6 +51,7 @@ describe('SidePanelApp', () => {
   });
 
   it('keeps the conversation, and a waiting approval, while you look at another view', async () => {
+    await trustSiteButAskBeforeEveryTool(BOARD_PAGE.origin);
     installFakeAgentBackend();
     render(<SidePanelApp />);
     const user = userEvent.setup();
@@ -69,6 +70,7 @@ describe('SidePanelApp', () => {
   });
 
   it('shows on the Chat link how many tool calls wait for your approval', async () => {
+    await trustSiteButAskBeforeEveryTool(BOARD_PAGE.origin);
     installFakeAgentBackend();
     render(<SidePanelApp />);
     const user = userEvent.setup();

@@ -155,6 +155,7 @@ Still stuck? The [troubleshooting guide](../../docs/troubleshooting.md#checking-
 - Browsers must send the extension's origin. Other websites (or other extensions) get `403`.
 - Everything the page sent is checked again here (sizes, tool limits, names), even though the extension already checked it.
 - The model is told that tool descriptions and results are data from the website, never instructions.
+- On a site the user hasn't trusted (`"isTrustedOrigin": false`), the model gets **no tools at all**, so it never reads text that site wrote about its tools. It's told to explain that the site isn't trusted instead.
 
 ## Code map
 

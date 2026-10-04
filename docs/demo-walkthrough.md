@@ -47,8 +47,8 @@ Something looks off (a yellow warning above the chat, or no tools)? Check [troub
 ## 4. Try another site
 
 1. Open a different website that uses WebMCP (Google's [WebMCP demos](https://github.com/GoogleChromeLabs/webmcp-tools) are a good start).
-2. The site starts **Untrusted**, so even tools that claim to be read-only ask for approval.
-3. Turn on **Trust this site** in the Tools view, and read-only tools run without asking.
+2. The site starts **Untrusted**. Ask the agent to do something there: it won't touch the site's tools, and it tells you the site isn't trusted.
+3. Turn on **Trust this site** in the Tools view and ask again. Now read-only tools run without asking, and anything that changes data asks you first.
 
 ## What to look at under the hood
 

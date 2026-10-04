@@ -2,7 +2,7 @@ import { vi } from 'vitest';
 
 import type { ActiveTabTools } from '../sidepanel/active-tab/active-tab-api';
 
-export const BOARD_PAGE: ActiveTabTools = {
+export const BOARD_PAGE = {
   kind: 'ready',
   tabId: 7,
   url: 'https://boards.example/b/1',
@@ -18,7 +18,7 @@ export const BOARD_PAGE: ActiveTabTools = {
     },
   ],
   rejectedTools: [],
-};
+} satisfies ActiveTabTools;
 
 /** A UI message stream response, exactly as the BFF sends it. */
 function uiMessageStream(chunks: object[]): Response {

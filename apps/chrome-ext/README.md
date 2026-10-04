@@ -73,6 +73,7 @@ A few rules keep it predictable:
 | At most 10 tool rounds per message               | A confused model can't loop forever. Send another message to let it keep going.          |
 | **Stop** cancels everything                      | It ends the answer, denies waiting approvals and cancels tools still running in the page |
 | Denying a tool tells the model not to retry it   | You stay in charge without arguing with the agent                                        |
+| Untrusted sites' tools are off limits            | The agent explains the site isn't trusted instead of acting on it                        |
 
 ## How the pieces talk
 
@@ -103,7 +104,7 @@ sequenceDiagram
 | [Background worker](src/entrypoints/background.ts)  | Extension          | Opens the side panel, connects already-open tabs, keeps the tool-count badge  |
 | [Side panel](src/sidepanel)                         | Extension page     | Everything you see                                                            |
 | [Agent chat](src/agent-chat)                        | Side panel         | Talks to the agent backend and runs the agent's tool calls safely             |
-| [Trust rules](src/trust/decide-tool-approval.ts)    | Side panel         | Decides whether a tool call runs on its own or asks you first                 |
+| [Trust rules](src/trust/decide-tool-approval.ts)    | Side panel         | Decides whether a tool call runs on its own, asks you first, or is refused    |
 | [Messages](src/messaging/extension-messages.ts)     | Shared             | The exact shape of every message, checked on arrival                          |
 
 ## Staying safe on any website
@@ -111,14 +112,15 @@ sequenceDiagram
 Any site can offer tools and describe them however it likes, so the extension treats everything a page sends as **untrusted**:
 
 - **Limits.** Tool lists, descriptions and schemas are capped and checked (see the [limits table](../../packages/agent-protocol/README.md#limits-for-untrusted-pages)). Anything the extension skips is listed with the reason.
-- **Trust is yours to give.** Every site starts untrusted, except the local web demo. You can trust a site from the Tools view.
-- **Labels are only believed on trusted sites.** A page can _claim_ a tool is read-only. The agent may only run such a tool without asking on a site you trust, and only if that's switched on in Settings. Everything else asks you first:
+- **Trust is yours to give.** Every site starts untrusted, except the local web demo. You can trust a site with **Trust this site** in the Tools view.
+- **The agent only uses trusted sites' tools.** On an untrusted site the model isn't even shown the site's tools, and if it still asks for one, the extension refuses. The agent tells you the site isn't trusted and how to trust it. (You can still run any tool yourself from the Tools view.)
+- **Labels are only believed on trusted sites.** A page can _claim_ a tool is read-only. On a site you trust, such a tool runs without asking if that's switched on in Settings. Everything else asks you first:
 
-| The tool says… | Trusted site         | Untrusted site |
-| -------------- | -------------------- | -------------- |
-| read-only      | runs automatically\* | asks you       |
-| changes data   | asks you             | asks you       |
-| consequential  | asks you             | asks you       |
+| The tool says… | Trusted site         | Untrusted site     |
+| -------------- | -------------------- | ------------------ |
+| read-only      | runs automatically\* | agent can't use it |
+| changes data   | asks you             | agent can't use it |
+| consequential  | asks you             | agent can't use it |
 
 \* when "Run read-only tools on trusted sites without asking" is on.
 

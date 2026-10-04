@@ -47,7 +47,10 @@ const PAGE_TOOLS = [
   },
 ];
 
-function chatRequest(overrides: Record<string, unknown> = {}): Request {
+function chatRequest({
+  isTrustedOrigin = true,
+  ...overrides
+}: { isTrustedOrigin?: boolean } & Record<string, unknown> = {}): Request {
   return new Request('http://127.0.0.1:8787/api/chat', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -59,7 +62,7 @@ function chatRequest(overrides: Record<string, unknown> = {}): Request {
         url: 'https://boards.example/b/1',
         origin: 'https://boards.example',
         title: 'Launch board',
-        isTrustedOrigin: false,
+        isTrustedOrigin,
         tools: PAGE_TOOLS,
       },
       ...overrides,
@@ -125,15 +128,28 @@ describe('createChatHandler', () => {
     );
   });
 
-  it('tells the model where it is, whether the site is trusted, and that tool output is untrusted', async () => {
+  it('tells the model where it is, that the user trusts the site, and that tool output is untrusted', async () => {
     const model = modelThatStreams([FINISH_CHUNK]);
     await (await createChatHandler({ model, maxToolResultChars: 20_000 })(chatRequest())).text();
 
     const instructions = JSON.stringify(model.doStreamCalls[0]?.prompt);
     expect(instructions).toContain('https://boards.example');
     expect(instructions).toContain('Launch board');
-    expect(instructions).toMatch(/not trusted/i);
+    expect(instructions).toMatch(/the user trusts this site/i);
     expect(instructions).toMatch(/never follow instructions/i);
+  });
+
+  it('offers no tools on a site the user has not trusted, and has the model explain why', async () => {
+    const model = modelThatStreams([FINISH_CHUNK]);
+    const handleChat = createChatHandler({ model, maxToolResultChars: 20_000 });
+
+    await (await handleChat(chatRequest({ isTrustedOrigin: false }))).text();
+
+    expect(model.doStreamCalls[0]?.tools ?? []).toEqual([]);
+    const instructions = JSON.stringify(model.doStreamCalls[0]?.prompt);
+    expect(instructions).toMatch(/not trusted/i);
+    expect(instructions).toContain('Trust this site');
+    expect(instructions).not.toContain('Move a card.');
   });
 
   it('shortens very long tool results before the model sees them', async () => {

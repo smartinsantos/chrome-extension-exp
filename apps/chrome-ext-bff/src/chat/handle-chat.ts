@@ -56,8 +56,11 @@ export function createChatHandler({
       });
     }
 
+    // The model never sees an untrusted site's tools: their descriptions are text the site wrote.
     // The extension already checked the tools, but the BFF never trusts its callers' input.
-    const { tools: pageTools } = normalizeToolDescriptors(pageContext.tools, pageContext.origin);
+    const { tools: pageTools } = pageContext.isTrustedOrigin
+      ? normalizeToolDescriptors(pageContext.tools, pageContext.origin)
+      : { tools: [] };
     const { toolSet } = buildPageToolSet(pageTools);
 
     const result = streamText({

@@ -69,7 +69,8 @@ Notice that **the model never touches the page directly**. It only _asks_ for to
 The extension works on any site that uses WebMCP, and any site can describe its tools however it likes. So everything a page sends is treated as untrusted:
 
 - **Size limits.** A page can expose at most 64 tools, and descriptions and schemas have size caps. The full table is in the [agent-protocol README](../packages/agent-protocol/README.md#limits-for-untrusted-pages).
-- **Approval first.** On sites you haven't marked as trusted, every tool call needs your click, even ones the page claims are "read-only".
+- **Trusted sites only.** The agent can only use the tools of sites you've marked as trusted. On any other site the model isn't shown the tools, the extension refuses any tool call, and the agent tells you the site isn't trusted.
+- **Approval first.** On trusted sites, every tool call that changes something needs your click. Only tools the site marks read-only may run on their own, and only if you allow that in Settings.
 - **One page per chat.** A chat stays with the tab it started on, so the agent can't act on a page you switched to.
 - **Safe tool names.** Page tool names are converted into names every AI provider accepts, and converted back before running. See [how tool names are translated](../packages/agent-protocol/README.md#translating-tool-names-for-the-model).
 

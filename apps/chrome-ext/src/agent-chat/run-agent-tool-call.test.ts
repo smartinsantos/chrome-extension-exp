@@ -102,16 +102,21 @@ describe('runAgentToolCall', () => {
     expect(outcome.kind).toBe('output');
   });
 
-  it('asks even for read-only tools when the site is not trusted', async () => {
+  it('refuses every tool on a site the user has not trusted, without asking', async () => {
     const deps = dependencies({
       readApprovalSettings: vi
         .fn<AgentToolCallDependencies['readApprovalSettings']>()
         .mockResolvedValue({ isTrustedOrigin: false, autoRunReadOnlyOnTrustedOrigins: true }),
     });
 
-    await runAgentToolCall(getBoardCall, deps);
+    const outcome = await runAgentToolCall(getBoardCall, deps);
 
-    expect(deps.requestUserApproval).toHaveBeenCalledOnce();
+    expect(outcome).toEqual({
+      kind: 'error',
+      errorText: expect.stringMatching(/not trusted.*Trust this site/s),
+    });
+    expect(deps.requestUserApproval).not.toHaveBeenCalled();
+    expect(deps.runTool).not.toHaveBeenCalled();
   });
 
   it('reports a denial to the model and runs nothing', async () => {
