@@ -1,0 +1,31 @@
+{
+  "name": "chrome-ext-bff",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Agent backend for the Chrome extension: talks to Ollama Cloud and streams chat and tool calls to the side panel.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/main.ts",
+    "build": "tsdown",
+    "start": "node --env-file-if-exists=.env dist/main.mjs",
+    "smoke": "tsx --env-file-if-exists=.env scripts/smoke-test.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@hono/node-server": "catalog:",
+    "@repo/agent-protocol": "workspace:*",
+    "ai": "catalog:",
+    "ai-sdk-ollama": "catalog:",
+    "hono": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@repo/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

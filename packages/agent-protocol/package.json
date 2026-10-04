@@ -1,0 +1,23 @@
+{
+  "name": "@repo/agent-protocol",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The contract between the Chrome extension and its BFF: WebMCP tool descriptors, untrusted-input limits, tool-name encoding and the chat API schema.",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@repo/tsconfig": "workspace:*",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

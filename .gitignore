@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.wxt/
+*.tsbuildinfo
+
+# Tooling caches
+.turbo/
+coverage/
+.superpowers/
+
+# Environment files (keep the committed examples)
+.env
+.env.*
+!.env.example
+
+# Local databases
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Claude Code local runtime files
+.claude/*.lock
+.claude/settings.local.json
+
+# OS and editor noise
+.DS_Store
+*.log
